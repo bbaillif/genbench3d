@@ -81,4 +81,5 @@ This reader is directly embedded in the benchmark:
 benchmark = GenBench3D()
 metrics = benchmark.get_metrics_for_ase_db(filepath=ase_db_path,
                                             cel_name='generated_molecules')
-```
+```# 3DGenMolBenchmark
+Benchmarking deep learning models generating molecules in 3D
