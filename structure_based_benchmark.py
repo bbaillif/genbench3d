@@ -3,17 +3,27 @@ import torch
 import os
 import gzip
 import logging
-import MDAnalysis as mda
 
+from copy import deepcopy
 from rdkit import Chem
 from tqdm import tqdm
-from structure_three_d_gen_metrics import StructureThreeDGenMetrics
-from utils.complex_minimizer import ComplexMinimizer
+from genbench3d import SBGenBench3D
+from genbench3d.data import ComplexMinimizer
+from genbench3d.data.structure import (Pocket, 
+                                       VinaProtein, 
+                                       Protein)
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-logging.basicConfig(filename='structure_based_benchmark.log', encoding='utf-8', level=logging.DEBUG)
+
+
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)s',
+                    datefmt='%d/%m/%Y %I:%M:%S %p',
+                    filemode='w',
+                    filename='structure_based_benchmark.log', 
+                    encoding='utf-8', 
+                    level=logging.INFO)
 
 cd_dirpath = '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/'
 
@@ -25,7 +35,8 @@ ligan_post_results = torch.load(ligan_post_path, map_location='cpu')
 
 # the i-th target is making the IFP script crash
 # MDA cannot read/transform into rdmol
-crashing_target_i = [26, 32, 38, 44, 45, 52, 65]
+# crashing_target_i = [26, 32, 38, 44, 45, 52, 65]
+crashing_target_i = []
 
 i_to_ligand_filename = {}
 
@@ -130,98 +141,78 @@ model_to_gen_mols = {
 d_results = {} # {target_name: {model_name: {rawOrProcessed: {metric: values_list}}}}
 
 logging.info('Starting benchmark')
-# try:
-for i, ligand_filename in tqdm(i_to_ligand_filename.items()):
-    
-    try:
-    
-        logging.info(ligand_filename)
+try:
+    for i, ligand_filename in tqdm(i_to_ligand_filename.items()):
         
-        d_target = {}
+        try:
         
-        native_ligand = native_ligands[ligand_filename]
-        
-        #ligand_filename is actually TARGET_NAME/ligand_filename.sdf
-        target_dirname, real_ligand_filename = ligand_filename.split('/') 
-        pdb_filename = f'{real_ligand_filename[:10]}.pdb'
-        original_structure_path = os.path.join(cd_dirpath, 
+            logging.info(ligand_filename)
+            
+            d_target = {}
+            
+            native_ligand = native_ligands[ligand_filename]
+            
+            #ligand_filename is actually TARGET_NAME/ligand_filename.sdf
+            target_dirname, real_ligand_filename = ligand_filename.split('/') 
+            pdb_filename = f'{real_ligand_filename[:10]}.pdb'
+            original_structure_path = os.path.join(cd_dirpath, 
+                                                    target_dirname,
+                                                    pdb_filename)
+            
+            protein = VinaProtein(pdb_filepath=original_structure_path)
+            sbgenbench3D = SBGenBench3D(protein,
+                                        native_ligand)
+            
+            protein_clean = Protein(protein.protein_clean_filepath)
+            pocket = Pocket(protein=protein_clean, 
+                            native_ligand=native_ligand)
+            complex_minimizer = ComplexMinimizer(pocket)
+            
+            for model_name, ligand_filename_to_gen_mols in model_to_gen_mols.items():
+            
+                logging.info(model_name)
+            
+                gen_mols = ligand_filename_to_gen_mols[ligand_filename]
+                results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
+                                                                n_total_mols=100)
+                    
+                d_model = {}
+                d_model['raw'] = results
+                
+                clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
+                minimized_path = os.path.join(pocket2mol_path, 
                                                 target_dirname,
-                                                pdb_filename)
-        
-        # Can only be run when Vina has processed. TODO: create a protein processor that runs without Vina
-        clean_structure_path = original_structure_path.replace('.pdb', '_protein_only_clean.pdb')
-        clean_mda_prot = mda.Universe(clean_structure_path)
-        STDGM = StructureThreeDGenMetrics(original_structure_path=original_structure_path,
-                                            clean_mda_prot=clean_mda_prot)
-        
-        complex_minimizer = ComplexMinimizer(clean_mda_prot=clean_mda_prot,
-                                            native_ligand=native_ligand)
-        
-        for model_name, ligand_filename_to_gen_mols in model_to_gen_mols.items():
-        
-            logging.info(model_name)
-        
-            gen_mols = ligand_filename_to_gen_mols[ligand_filename]
-        
-            vina_scores = STDGM.vina_score_ligands(ligands=gen_mols, 
-                                                native_ligand=native_ligand)
-            ifp_sims = STDGM.ifp_sim_ligands(ligands=gen_mols, 
-                                            native_ligand=native_ligand)
-            shape_sims = STDGM.shape_sim_ligands(ligands=gen_mols, 
-                                                native_ligand=native_ligand)
-                
-            d_model = {}
-                
-            d_gen = {'Vina scores': vina_scores,
-                    'IFP similarity': ifp_sims,
-                    'Electrostatic shape similarity': shape_sims}
-            
-            d_model['raw'] = d_gen
-            
-            clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
-            minimized_path = os.path.join(pocket2mol_path, 
-                                            target_dirname,
-                                            real_ligand_filename.replace('.sdf', 
-                                                                         f'_{clean_model_name}_mini.sdf')
-                                            )
-            # if not os.path.exists(minimized_path):
-            gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
-            mini_gen_mols = []
-            for mol in gen_mols_h:
-                mini_mol = complex_minimizer.minimize_ligand(mol)
-                mini_gen_mols.append(mini_mol)
-                
-            logging.info(f'Saving minimized molecules in {minimized_path}')
-            with Chem.SDWriter(minimized_path) as writer:
-                for i, mol in enumerate(mini_gen_mols):
-                    try:
+                                                real_ligand_filename.replace('.sdf', 
+                                                                            f'_{clean_model_name}_mini.sdf')
+                                                )
+                # if not os.path.exists(minimized_path):
+                gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
+                mini_gen_mols = []
+                for mol in gen_mols_h:
+                    mini_mol = complex_minimizer.minimize_ligand(mol)
+                    if mini_mol is not None:
+                        mini_gen_mols.append(mini_mol)
+                    
+                logging.info(f'Saving minimized molecules in {minimized_path}')
+                with Chem.SDWriter(minimized_path) as writer:
+                    for i, mol in enumerate(mini_gen_mols):
                         writer.write(mol)
-                    except:
-                        logging.warning(f'Failed in writing a minimized mol, number {i}')
-            # else:
+                    
+                results = sbgenbench3D.get_results_for_mol_list(mols=mini_gen_mols,
+                                                                n_total_mols=100)
                 
-            vina_scores = STDGM.vina_score_ligands(ligands=mini_gen_mols, 
-                                                native_ligand=native_ligand,)
-            ifp_sims = STDGM.ifp_sim_ligands(ligands=mini_gen_mols, 
-                                            native_ligand=native_ligand)
-            shape_sims = STDGM.shape_sim_ligands(ligands=mini_gen_mols, 
-                                                native_ligand=native_ligand)
+                d_model['minimized'] = results
+                    
+                d_target[model_name] = d_model
                 
-            d_gen = {'Vina scores': vina_scores,
-                    'IFP similarity': ifp_sims,
-                    'Electrostatic shape similarity': shape_sims}
-            
-            d_model['minimized'] = d_gen
-                
-            d_target[model_name] = d_model
-            
-        d_results[ligand_filename] = d_target
-    
-    except Exception as e:
-        print('Something went wrong: ', e)
+            d_results[ligand_filename] = d_target
         
-# except KeyboardInterrupt:
-#     import pdb;pdb.set_trace()
+        except Exception as e:
+            print('Something went wrong: ', e)
+            # import pdb;pdb.set_trace()
+        
+except KeyboardInterrupt:
+    import pdb;pdb.set_trace()
     
 with open('structure_based_benchmark_results.p', 'wb') as f:
     pickle.dump(d_results, f)

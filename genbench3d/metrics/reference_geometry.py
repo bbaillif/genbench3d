@@ -7,7 +7,7 @@ from abc import abstractmethod, ABC, abstractclassmethod
 from typing import List, Dict
 from tqdm import tqdm
 from collections import defaultdict
-from params import DATA_DIRPATH, LIGBOUNDCONF_MINIMIZED_FILEPATH
+from genbench3d.params import DATA_DIRPATH, LIGBOUNDCONF_MINIMIZED_FILEPATH
 from rdkit import Chem
 from rdkit.Chem import Mol
 from rdkit.Chem.rdMolTransforms import GetBondLength, GetAngleDeg, GetDihedralDeg

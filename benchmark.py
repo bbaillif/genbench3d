@@ -3,12 +3,9 @@ import torch
 import os
 import gzip
 import logging
-import MDAnalysis as mda
 
 from rdkit import Chem
-from tqdm import tqdm
-from genbench3d.genbench3d import GenBench3D
-from utils.complex_minimizer import ComplexMinimizer
+from genbench3d import GenBench3D
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')

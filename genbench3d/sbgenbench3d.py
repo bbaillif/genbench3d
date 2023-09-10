@@ -1,85 +1,78 @@
-import os
 import numpy as np
-import MDAnalysis as mda
 import prolif as plf
 import logging
+import copy
 
-from typing import List
+from typing import List, Dict
 from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import Mol
-from docking.vina_scorer import VinaScorer
+from .metrics import VinaScorer
 from espsim import GetEspSim
 from .genbench3d import GenBench3D
+from .data.structure import VinaProtein
+from MDAnalysis import Universe
 # from ccdc.docking import Docker
 # from ccdc.io import MoleculeReader, Entry
 
 class SBGenBench3D(GenBench3D):
     
     def __init__(self, 
-                 original_structure_path: str,
-                 clean_mda_prot: mda.Universe,
+                 protein: VinaProtein,
                  native_ligand: Mol,
                  root: str = 'genbench3d_results/', 
                  training_mols: List = None, 
-                 show_plots: bool = True, 
+                 show_plots: bool = False, 
                  tfd_threshold: float = 0.2) -> None:
-        assert os.path.exists(original_structure_path)
         super().__init__(root, 
                          training_mols, 
                          show_plots, 
                          tfd_threshold)
         
-        self.original_structure_path = original_structure_path
-        self.clean_mda_prot = clean_mda_prot
-        self.prot = plf.Molecule.from_mda(clean_mda_prot)
+        self.protein = protein
         self.native_ligand = Chem.AddHs(native_ligand, addCoords=True)
         
+        self._vina_scorer = VinaScorer.from_ligand(ligand=self.native_ligand,
+                                                   protein=protein)
+        self._clean_universe = Universe(self.protein.protein_clean_filepath)
+        self._prolif_mol = plf.Molecule.from_mda(self._clean_universe)
         
-    def get_metrics_for_mol_list(self, 
-                                 mols: List, 
-                                 n_total_mols: int = None):
-        self.metrics = super().get_metrics_for_mol_list(mols, n_total_mols)
         
-        self.absolute_vina_scores = self.get_vina_score(ligands=mols,
-                                                   relative=False)
-        self.metrics['Median absolute Vina score'] = np.median(self.absolute_vina_scores)
+    def get_results_for_mol_list(self, 
+                                 mols: List[Mol], 
+                                 n_total_mols: int = None) -> Dict[str, float]:
+        self.results = super().get_results_for_mol_list(mols, 
+                                                        n_total_mols)
         
-        self.relative_vina_scores = self.get_vina_score(ligands=mols)
-        median_vina_relative = np.median(self.relative_vina_scores)
-        self.metrics['Median Vina score relative to test ligand'] = median_vina_relative
+        self.native_ligand_vina_score = self._vina_scorer.score_mol(self.native_ligand)[0]
+        
+        absolute_vina_scores = self.get_vina_score(ligands=mols)
+        self.absolute_vina_scores = np.array(absolute_vina_scores)
+        self.results['Median absolute Vina score'] = np.nanmedian(self.absolute_vina_scores)
+        
+        self.relative_vina_scores = self.absolute_vina_scores - self.native_ligand_vina_score
+        median_vina_relative = np.nanmedian(self.relative_vina_scores)
+        self.results['Median Vina score relative to test ligand'] = median_vina_relative
 
         self.ifp_sims = self.get_ifp_sims(ligands=mols)
-        median_ifp_sim = np.median(self.ifp_sims)
-        self.metrics['Median IFP similarity to test ligand'] = median_ifp_sim
+        median_ifp_sim = np.nanmedian(self.ifp_sims)
+        self.results['Median IFP similarity to test ligand'] = median_ifp_sim
         
         self.espsims = self.get_espsims(ligands=mols)
-        median_espsim = np.median(self.espsims)
-        self.metrics['Median ESPSIM to test ligand'] = median_espsim
+        median_espsim = np.nanmedian(self.espsims)
+        self.results['Median ESPSIM to test ligand'] = median_espsim
         
-        return self.metrics
+        return dict(self.results)
 
         
     def get_vina_score(self,
-                        ligands: List[Mol],
-                        relative: bool=True):
+                        ligands: List[Mol]) -> List[float]:
         self.vina_scores = []
-        receptor_pdbqt_filepath = self.original_structure_path.replace('.pdb', 
-                                                                       '.pdbqt')
-        vina_scorer = VinaScorer(receptor_pdbqt_filepath)
-        vina_scorer.write_box_from_ligand(ligand=self.native_ligand)
-        vina_scorer.set_box()
-        
-        if relative:
-            native_energies = vina_scorer.score_mol(self.native_ligand)
-            native_score = native_energies[0]
         
         for ligand in ligands:
             try:
-                energies = vina_scorer.score_mol(ligand)
+                energies = self._vina_scorer.score_mol(ligand)
                 score = energies[0]
-                if relative:
-                    score = score - native_score
 
             except Exception as e:
                 logging.warning(f'Vina scoring error: {e}')
@@ -133,7 +126,7 @@ class SBGenBench3D(GenBench3D):
     
     
     def get_ifp_sims(self,
-                    ligands: List[Mol]):
+                    ligands: List[Mol]) -> List[float]:
         self.ifp_sims = []
         try:
             ligands = [Chem.AddHs(ligand, addCoords=True) for ligand in ligands]
@@ -141,7 +134,9 @@ class SBGenBench3D(GenBench3D):
             fp = plf.Fingerprint()
             lig_list = [plf.Molecule.from_rdkit(self.native_ligand)] \
                 + [plf.Molecule.from_rdkit(ligand) for ligand in ligands]
-            fp.run_from_iterable(lig_list, self.prot)
+            fp.run_from_iterable(lig_iterable=lig_list,
+                                 prot_mol=self._prolif_mol, 
+                                 progress=False)
             df = fp.to_dataframe()
             
             bvs = plf.to_bitvectors(df)
@@ -155,7 +150,7 @@ class SBGenBench3D(GenBench3D):
     
     
     def get_espsims(self,
-                    ligands: List[Mol]):
+                    ligands: List[Mol]) -> List[float]:
         self.esp_sims = []
         for ligand in ligands:
             try:
