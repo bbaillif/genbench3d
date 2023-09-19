@@ -5,8 +5,8 @@ import urllib
 import MDAnalysis as mda
 
 from pathlib import Path
-from prody import (parsePDB, 
-                   writePDB)
+# from prody import (parsePDB, 
+#                    writePDB)
 # from scipy.spatial.distance import euclidean
 from collections import Counter
 from rdkit import Chem
@@ -898,17 +898,17 @@ class PDBbind() :
         return os.path.join(self.pdb_dir, f'{pdb_id}.pdb')
     
     
-    def get_pdb_default_alt_filepath(self,
-                                     pdb_id: str) -> Union[str, None]:
-        pdb_filepath = self.get_pdb_filepath(pdb_id)
-        pdb_default_alt_filepath = pdb_filepath.replace('.pdb', '_default.pdb')
-        if not os.path.exists(pdb_default_alt_filepath):
-            atoms = parsePDB(pdb_filepath) # by default, keep altLoc in ['', 'A']
-            writePDB(pdb_default_alt_filepath, atoms)
-        if os.path.exists(pdb_default_alt_filepath):
-            return pdb_default_alt_filepath
-        else:
-            return None
+    # def get_pdb_default_alt_filepath(self,
+    #                                  pdb_id: str) -> Union[str, None]:
+    #     pdb_filepath = self.get_pdb_filepath(pdb_id)
+    #     pdb_default_alt_filepath = pdb_filepath.replace('.pdb', '_default.pdb')
+    #     if not os.path.exists(pdb_default_alt_filepath):
+    #         atoms = parsePDB(pdb_filepath) # by default, keep altLoc in ['', 'A']
+    #         writePDB(pdb_default_alt_filepath, atoms)
+    #     if os.path.exists(pdb_default_alt_filepath):
+    #         return pdb_default_alt_filepath
+    #     else:
+    #         return None
         
         
     def get_pocket_filepaths(self,
