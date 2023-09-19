@@ -22,6 +22,7 @@ from .metrics import (Metric,
                       Novelty2D,
                       MaxTrainSim,
                       MolProperty,
+                      RingProportion,
                       Validity3D,
                       Uniqueness3D,
                       Diversity3D,
@@ -54,7 +55,8 @@ class GenBench3D():
         
         self.graph_metrics: List[Metric] = [Validity2D(),
                                             Uniqueness2D(),
-                                            Diversity2D()]
+                                            Diversity2D(),
+                                            RingProportion()]
         self.mol_properties: List[str] = ['MW', 'logP', 'SAScore', 'QED']
         for property_name in self.mol_properties:
             self.graph_metrics.append(MolProperty(name=property_name))
@@ -170,7 +172,8 @@ class GenBench3D():
                                   mols: List[Mol],
                                   n_total_mols: int = None,
                                   ):
-        cel = GeneratedCEL.from_mol_list(mols)
+        cel = GeneratedCEL.from_mol_list(mols, 
+                                         n_total_mols)
         return self.get_results_for_cel(cel)
     
     

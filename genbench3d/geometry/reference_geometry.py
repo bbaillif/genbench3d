@@ -3,15 +3,12 @@ import numpy as np
 import pickle
 # import logging
 
-from abc import abstractmethod, ABC, abstractclassmethod
+from abc import abstractmethod, ABC
 from typing import List, Dict
 from tqdm import tqdm
 from collections import defaultdict
-from genbench3d.params import DATA_DIRPATH, LIGBOUNDCONF_MINIMIZED_FILEPATH
-from rdkit import Chem
+from genbench3d.params import DATA_DIRPATH
 from rdkit.Chem import Mol
-from rdkit.Chem.rdMolTransforms import GetBondLength, GetAngleDeg, GetDihedralDeg
-from rdkit.Chem.rdmolops import FindAllPathsOfLengthN
 from .geometry_extractor import GeometryExtractor
 
 
@@ -280,18 +277,4 @@ class ReferenceGeometry(ABC):
             
         return in_range, new_pattern
     
-    
-
-class LigBoundConfGeometry(ReferenceGeometry):
-    
-    def __init__(self, 
-                 root: str = DATA_DIRPATH, 
-                 source_name: str ='LigBoundConf_minimized') -> None:
-        super().__init__(root, source_name)
-        
-        
-    def load_ligands(self):
-        minimized_path = LIGBOUNDCONF_MINIMIZED_FILEPATH
-        ligands = [mol for mol in Chem.SDMolSupplier(minimized_path) if mol is not None]
-        return ligands
         

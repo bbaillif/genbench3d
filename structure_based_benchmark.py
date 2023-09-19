@@ -16,8 +16,6 @@ from genbench3d.data.structure import (Pocket,
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-
-
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)s',
                     datefmt='%d/%m/%Y %I:%M:%S %p',
                     filemode='w',
@@ -27,6 +25,10 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
 
 cd_dirpath = '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/'
 
+minimized_path = '/home/bb596/hdd/ThreeDGenMolBenchmark/minimized/'
+if not os.path.exists(minimized_path):
+    os.mkdir(minimized_path)
+
 targetdiff_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/targetdiff_vina_docked.pt'
 ligan_post_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/cvae_vina_docked.pt'
 
@@ -35,8 +37,8 @@ ligan_post_results = torch.load(ligan_post_path, map_location='cpu')
 
 # the i-th target is making the IFP script crash
 # MDA cannot read/transform into rdmol
-# crashing_target_i = [26, 32, 38, 44, 45, 52, 65]
-crashing_target_i = []
+crashing_target_i = [26, 32, 38, 44, 45, 52, 65]
+# crashing_target_i = []
 
 i_to_ligand_filename = {}
 
@@ -142,7 +144,7 @@ d_results = {} # {target_name: {model_name: {rawOrProcessed: {metric: values_lis
 
 logging.info('Starting benchmark')
 try:
-    for i, ligand_filename in tqdm(i_to_ligand_filename.items()):
+    for i, ligand_filename in tqdm(list(i_to_ligand_filename.items())[2:]):
         
         try:
         
@@ -160,12 +162,14 @@ try:
                                                     pdb_filename)
             
             protein = VinaProtein(pdb_filepath=original_structure_path)
-            sbgenbench3D = SBGenBench3D(protein,
-                                        native_ligand)
-            
             protein_clean = Protein(protein.protein_clean_filepath)
             pocket = Pocket(protein=protein_clean, 
                             native_ligand=native_ligand)
+            
+            sbgenbench3D = SBGenBench3D(protein,
+                                        pocket,
+                                        native_ligand)
+            
             complex_minimizer = ComplexMinimizer(pocket)
             
             for model_name, ligand_filename_to_gen_mols in model_to_gen_mols.items():
@@ -173,42 +177,51 @@ try:
                 logging.info(model_name)
             
                 gen_mols = ligand_filename_to_gen_mols[ligand_filename]
-                results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
+                gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
+                results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols_h,
                                                                 n_total_mols=100)
                     
                 d_model = {}
                 d_model['raw'] = results
                 
-                clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
-                minimized_path = os.path.join(pocket2mol_path, 
-                                                target_dirname,
-                                                real_ligand_filename.replace('.sdf', 
-                                                                            f'_{clean_model_name}_mini.sdf')
-                                                )
-                # if not os.path.exists(minimized_path):
-                gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
-                mini_gen_mols = []
-                for mol in gen_mols_h:
-                    mini_mol = complex_minimizer.minimize_ligand(mol)
-                    if mini_mol is not None:
-                        mini_gen_mols.append(mini_mol)
-                    
-                logging.info(f'Saving minimized molecules in {minimized_path}')
-                with Chem.SDWriter(minimized_path) as writer:
-                    for i, mol in enumerate(mini_gen_mols):
-                        writer.write(mol)
-                    
-                results = sbgenbench3D.get_results_for_mol_list(mols=mini_gen_mols,
-                                                                n_total_mols=100)
+                # # Minimize complexes
+                # clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
+                # minimized_target_path = os.path.join(minimized_path, target_dirname)
+                # if not os.path.exists(minimized_target_path):
+                #     os.mkdir(minimized_target_path)
+                # minimized_filename = 'generated_' + real_ligand_filename.replace('.sdf', 
+                #                                                             f'_{clean_model_name}_minimized.sdf')
+                # minimized_filepath = os.path.join(minimized_target_path,
+                #                                   minimized_filename)
                 
-                d_model['minimized'] = results
+                # if not os.path.exists(minimized_filepath):
+                #     mini_gen_mols = []
+                #     for mol in gen_mols_h:
+                #         mini_mol = complex_minimizer.minimize_ligand(mol)
+                #         if mini_mol is not None:
+                #             mini_gen_mols.append(mini_mol)
+                #     logging.info(f'Saving minimized molecules in {minimized_filepath}')
+                #     with Chem.SDWriter(minimized_filepath) as writer:
+                #         for i, mol in enumerate(mini_gen_mols):
+                #             writer.write(mol)
+                # else:
+                #     logging.info(f'Loading minimized molecules from {minimized_filepath}')
+                #     mini_gen_mols = [mol for mol in Chem.SDMolSupplier(minimized_filepath)]
+                    
+                
+                # results = sbgenbench3D.get_results_for_mol_list(mols=mini_gen_mols,
+                #                                                 n_total_mols=100)
+                
+                # # import pdb;pdb.set_trace()
+                
+                # d_model['minimized'] = results
                     
                 d_target[model_name] = d_model
                 
             d_results[ligand_filename] = d_target
         
         except Exception as e:
-            print('Something went wrong: ', e)
+            logging.warning(f'Something went wrong: {e}')
             # import pdb;pdb.set_trace()
         
 except KeyboardInterrupt:

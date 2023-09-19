@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 from genbench3d.conf_ensemble import GeneratedCEL
 from genbench3d.metrics import Metric
@@ -30,7 +31,7 @@ class Diversity3D(Metric):
                     icds.append(icd)
                     self.icds[name].append(icd)
             except Exception as e:
-                print('Diversity 3D exception: ', e)
+                logging.warning(f'Diversity 3D exception: {e}')
                 
         if len(icds) > 0:
             diversity_3D = np.mean([icd 
@@ -38,4 +39,7 @@ class Diversity3D(Metric):
                         if icd != 0])
         else:
             diversity_3D = 0
-        return diversity_3D
+            
+        self.value = diversity_3D
+            
+        return self.value

@@ -251,3 +251,16 @@ class ConfEnsemble() :
                 mol.SetProp(prop, str(value))
             writer.write(mol=mol, confId=conf_id)
             
+    def to_mol_list(self):
+        mols = []
+        # conf_ids = [conf.GetId() for conf in self._mol.GetConformers()]
+        # for conserved_conf_id in conf_ids:
+        #     new_mol = Mol(self._mol)
+        #     for erased_conf_id in conf_ids:
+        #         if conserved_conf_id != erased_conf_id:
+        #             new_mol.RemoveConformer(erased_conf_id)
+        #     mols.append(new_mol)
+        mols = [Mol(mol=self._mol, confId=conf.GetId()) 
+                for conf in self._mol.GetConformers()]
+        # import pdb;pdb.set_trace()
+        return mols

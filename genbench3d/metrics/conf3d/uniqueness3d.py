@@ -1,3 +1,5 @@
+import logging
+
 from genbench3d.conf_ensemble import GeneratedCEL
 from genbench3d.metrics import Metric
 from scipy.cluster.hierarchy import linkage, fcluster
@@ -38,20 +40,19 @@ class Uniqueness3D(Metric):
                                 criterion='distance')
                     n_clusters = max(T)
                     self.n_unique += n_clusters
-                    self.clusters[mol] = T
+                    self.clusters[name] = T
                     
                     if n_clusters == 1 and mol.GetNumConformers() > 1:
                         self.unique_mol[name] = ce.mol
                 except Exception as e:
-                    print('Uniqueness 3D exception:', e)
+                    logging.warning(f'Uniqueness 3D exception: {e}')
                     
             else:
                 print('Conf ensemble without conformers, please check')
-                import pdb;pdb.set_trace()
                 raise RuntimeError()
                 
         if self.n_unique == 0:
-            self.value = 1
+            self.value = 1.0
         else:
             self.value = self.n_unique / cel.n_total_confs
                 

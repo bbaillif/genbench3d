@@ -434,7 +434,7 @@ class ConfEnsembleLibrary() :
                        name: str) -> List[float]:
         if not name in self._tfd_matrices:
             self._tfd_matrices[name] = self.compute_tfd_matrix(name)
-        return self._tfd_matrices
+        return self._tfd_matrices[name]
             
             
     def compute_tfd_matrix(self,
@@ -472,3 +472,11 @@ class ConfEnsembleLibrary() :
                 import pdb;pdb.set_trace()
 
         return new_cel
+    
+    
+    def to_mol_list(self):
+        mols = []
+        for ce in self:
+            ce_mols = ce.to_mol_list()
+            mols.extend(ce_mols)
+        return mols

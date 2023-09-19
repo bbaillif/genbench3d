@@ -4,3 +4,4 @@ from .diversity2d import Diversity2D
 from .novelty2d import Novelty2D
 from .maximum_training_similarity import MaxTrainSim
 from .mol_properties import MolProperty
+from .ring_proportion import RingProportion

@@ -30,6 +30,7 @@ class GeneratedCEL(ConfEnsembleLibrary):
                                     root, 
                                     names, 
                                     standardize)
+        
         if n_total_mols is not None:
             cel.n_total_mols = n_total_mols
             # allow the number to be higher, 

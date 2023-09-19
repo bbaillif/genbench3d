@@ -13,21 +13,21 @@ from genbench3d.data.structure.protein import VinaProtein
 
 DEFAULT_SF_NAME = 'vina'
 DEFAULT_PREPARATION_METHOD = 'adfr'
-DEFAULT_SIZE_BORDER = 25 # Angstrom
+DEFAULT_SIZE_BORDER = 35 # Angstrom
 DEFAULT_N_CPUS = 4
 SEED = 2023
 
 class VinaScorer():
     
     def __init__(self,
-                 protein: VinaProtein,
+                 vina_protein: VinaProtein,
                  sf_name: str = DEFAULT_SF_NAME,
                  preparation_method: str = DEFAULT_PREPARATION_METHOD,
                  n_cpus: int = DEFAULT_N_CPUS,
                  seed: int = SEED,
                  size_border: float = DEFAULT_SIZE_BORDER) -> None:
         
-        self.protein = protein
+        self.vina_protein = vina_protein
         self.sf_name = sf_name
         self.preparation_method = preparation_method
         self.n_cpus = n_cpus
@@ -37,7 +37,7 @@ class VinaScorer():
         self._vina = Vina(sf_name=sf_name,
                           cpu=n_cpus,
                           seed=seed)
-        self._vina.set_receptor(self.protein.pdbqt_filepath) 
+        self._vina.set_receptor(self.vina_protein.pdbqt_filepath) 
         # will automatically perform protein preparation if 
         # the pdbqt file does not exist
         
@@ -58,13 +58,13 @@ class VinaScorer():
     @classmethod
     def from_ligand(cls,
                     ligand: Union[Mol, AtomGroup],
-                    protein: VinaProtein,
+                    vina_protein: VinaProtein,
                     sf_name: str = DEFAULT_SF_NAME,
                     preparation_method: str = DEFAULT_PREPARATION_METHOD,
                     n_cpus: int = DEFAULT_N_CPUS,
                     seed: int = SEED,
                     size_border: float = DEFAULT_SIZE_BORDER) -> 'VinaScorer':
-        vina_scorer = cls(protein,
+        vina_scorer = cls(vina_protein,
                          sf_name,
                          preparation_method,
                          n_cpus,
@@ -78,19 +78,19 @@ class VinaScorer():
     def from_ligand_name_chain(cls,
                                ligand_name: str,
                                 chain: str, 
-                                protein: VinaProtein,
+                                vina_protein: VinaProtein,
                                 sf_name: str = DEFAULT_SF_NAME,
                                 preparation_method: str = DEFAULT_PREPARATION_METHOD,
                                 n_cpus: int = DEFAULT_N_CPUS,
                                 seed: int = SEED,
                                 size_border: float = DEFAULT_SIZE_BORDER) -> 'VinaScorer':
-        vina_scorer = cls(protein,
+        vina_scorer = cls(vina_protein,
                          sf_name,
                          preparation_method,
                          n_cpus,
                          seed,
                          size_border)
-        ligand_filepath = vina_scorer.protein.extract_ligand(universe=vina_scorer.protein.universe,
+        ligand_filepath = vina_scorer.vina_protein.extract_ligand(universe=vina_scorer.protein.universe,
                                                             ligand_name=ligand_name,
                                                             chain=chain)
         ligand = Chem.MolFromPDBFile(ligand_filepath)

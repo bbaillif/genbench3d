@@ -32,6 +32,6 @@ class StrainEnergy(Metric):
             self.strain_energies[name] = mol_strain_energies
             all_strain_energies.extend(mol_strain_energies)
             
-        self.value = np.median(all_strain_energies)
+        self.value = np.nanmedian(all_strain_energies)
             
         return self.value

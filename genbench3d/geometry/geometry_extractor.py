@@ -1,12 +1,17 @@
 from rdkit.Chem import Bond, Mol, Conformer
 from rdkit.Chem.rdMolTransforms import GetBondLength, GetAngleDeg, GetDihedralDeg
 from rdkit.Chem.rdmolops import FindAllPathsOfLengthN
+from rdkit.Chem import GetPeriodicTable
 
 class GeometryExtractor():
     
     def __init__(self) -> None:
-        pass
+        self.periodic_table = GetPeriodicTable()
     
+    
+    def get_vdw_radius(self,
+                       symbol: str):
+        return self.periodic_table.GetRvdw(symbol)
     
     @staticmethod
     def get_bond_order_str(bond_order: float) -> str:

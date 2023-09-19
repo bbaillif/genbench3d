@@ -3,20 +3,48 @@ import torch
 import os
 import gzip
 import logging
+import torch
 
 from rdkit import Chem
 from genbench3d import GenBench3D
+from tqdm import tqdm
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
-logging.basicConfig(filename='benchmark.log', encoding='utf-8', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)s',
+                    datefmt='%d/%m/%Y %I:%M:%S %p',
+                    filemode='w',
+                    filename='benchmark.log', 
+                    encoding='utf-8', 
+                    level=logging.INFO)
 
 cd_dirpath = '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/'
 
 targetdiff_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/targetdiff_vina_docked.pt'
 ligan_post_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/cvae_vina_docked.pt'
 pocket2mol_path = '/home/bb596/hdd/ThreeDGenMolBenchmark/Pocket2Mol/test_set'
+
+cross_docked_path = '/home/bb596/hdd/CrossDocked/'
+cross_docked_data_path = os.path.join(cross_docked_path, 'crossdocked_pocket10/')
+split_path = os.path.join(cross_docked_path, 'split_by_name.pt')
+train_ligand_path = '../hdd/ThreeDGenMolBenchmark/train_ligand_cd.sdf'
+
+if not os.path.exists(train_ligand_path):
+    splits = torch.load(split_path)
+
+    train_ligands = []
+    train_data = list(splits['train'])
+    for duo in tqdm(train_data):
+        pocket_path, ligand_path = duo
+        ligand_path = os.path.join(cross_docked_data_path, ligand_path)
+        ligand = [mol for mol in Chem.SDMolSupplier(str(ligand_path))][0]
+        train_ligands.append(ligand)
+    with Chem.SDWriter(train_ligand_path) as writer:
+        for ligand in train_ligands:
+            writer.write(ligand)
+else:
+    train_ligands = [mol for mol in Chem.SDMolSupplier(train_ligand_path)]
 
 targetdiff_results = torch.load(targetdiff_path, map_location='cpu')
 ligan_post_results = torch.load(ligan_post_path, map_location='cpu')
@@ -160,6 +188,7 @@ for i, ligand_filename in i_to_ligand_filename.items():
     
     
 model_to_gen_mols = {
+    'CrossDocked (training)': train_ligands,
     'LiGAN (prior)': ligan_prior_gen_mols,
     'LiGAN (prior) minimized': ligan_prior_mini_mols,
     'LiGAN (posterior)': ligan_post_gen_mols,
@@ -181,10 +210,11 @@ for model_name, gen_mols in model_to_gen_mols.items():
 
 for model_name, gen_mols in model_to_gen_mols.items():
     logging.info(model_name)
-    metric_calculator = GenBench3D(show_plots=False)
-    metric_calculator.n_total_mols = 10000
-    metrics = metric_calculator.get_metrics_from_mol_list(gen_mols)
-    d_results[model_name] = metrics
+    genbench3D = GenBench3D(show_plots=False)
+    # genbench3D.n_total_mols = 10000
+    results = genbench3D.get_results_for_mol_list(gen_mols)
+    d_results[model_name] = results
+    import pdb;pdb.set_trace()
     
 with open('benchmark_results.p', 'wb') as f:
     pickle.dump(d_results, f)
