@@ -54,6 +54,8 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 
 ## Structure-based metrics (based on a given protein pocket and native ligand)
 
+| Metric | Definition |
+| --- | --- |
 | Median absolute Vina score | Using Vina Python package |
 | Median Vina score relative to test ligand | Using Vina Python package |
 | Median Interaction FingerPrint (IFP) similarity to test ligand | Using ProLiF Python package |
