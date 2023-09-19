@@ -8,15 +8,16 @@ Benchmarking deep learning models generating molecules in 3D
 - espsim (electrostatic shape similarity)
 - ase (read asedb files, useful to store xyz coordinates)
 - openbabel (for molecule protonation + second bond determination option)
+- vina (for Vina docking score)
 
 ## Installation
-The easiest way is to use the given environment.yml
-`conda env create -f environment.yml`
-You then need to activate the environment
-`conda activate genbench3d`
-Clone the espsim repository
-`git clone https://github.com/hesther/espsim/tree/master`
-Go into the espsim directory, and use the pip local installation (develop)
+The easiest way is to use the given environment.yml using Conda (or Mamba which is faster):
+`conda env create -f environment.yml`  
+You then need to activate the environment:
+`conda activate genbench3d`  
+Clone the espsim repository:
+`git clone https://github.com/hesther/espsim/tree/master`  
+Go into the espsim directory, and use the pip local installation (develop):
 ```bash
 cd espsim
 pip install -e .
