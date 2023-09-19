@@ -35,6 +35,4 @@ class ESPSIM(Metric):
             self.espsims[name] = espsims
             all_espsims.extend(espsims)
             
-        self.value = np.nanmedian(all_espsims)
-            
-        return self.value
+        return all_espsims

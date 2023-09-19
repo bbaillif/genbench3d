@@ -30,4 +30,4 @@ class MaxTrainSim(TrainingMetric):
                 all_max_sims.append(max_sim)
                 self.max_sims[name] = max_sim
                 
-        return np.nanmedian(all_max_sims)
+        return all_max_sims

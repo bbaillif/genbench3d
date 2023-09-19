@@ -334,7 +334,7 @@ class Validity3D(Metric):
             #     plt.xlabel('Number of invalid angles')
             #     plt.show()
         
-        self.median_n_inv_bonds = np.nanmedian(all_n_inv_bonds)
-        self.median_n_inv_angles = np.nanmedian(all_n_inv_angles)
+        # self.median_n_inv_bonds = np.nanmedian(all_n_inv_bonds)
+        # self.median_n_inv_angles = np.nanmedian(all_n_inv_angles)
         
-        return self.median_n_inv_bonds, self.median_n_inv_angles
+        return all_n_inv_bonds, all_n_inv_angles

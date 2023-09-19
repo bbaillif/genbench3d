@@ -26,4 +26,4 @@ class Diversity2D(Metric):
                 dist = 1 - sim
                 self.dists.append(dist)
                 
-        return np.mean(self.dists)
+        return np.nanmean(self.dists)

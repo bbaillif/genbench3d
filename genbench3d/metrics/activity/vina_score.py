@@ -38,8 +38,6 @@ class VinaScore(Metric):
                     logging.warning(f'Vina scoring error: {e}')
             self.scores[name] = ce_scores
             all_scores.extend(ce_scores)
-            
-        self.value = np.nanmedian(all_scores)
         
-        return self.value
+        return all_scores
             

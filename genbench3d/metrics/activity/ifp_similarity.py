@@ -55,8 +55,6 @@ class IFPSimilarity(Metric):
                 all_ifp_sims.append(ifp_sim)
         except Exception as e:
             logging.warning(f'IFP computation error: {e}')
-            import pdb;pdb.set_trace()
+            # import pdb;pdb.set_trace()
             
-        self.value = np.nanmedian(all_ifp_sims)
-            
-        return self.value
+        return all_ifp_sims

@@ -30,6 +30,8 @@ from .metrics import (Metric,
                       StrainEnergy,
                       )
 
+# from .benchmark_results import BenchmarkResults
+
 from genbench3d.params import DEFAULT_TFD_THRESHOLD
 
 class GenBench3D():
@@ -72,7 +74,7 @@ class GenBench3D():
                                                  Diversity3D()]
         self.training_valid_conf_metrics: List[TrainingMetric] = [Novelty3D(self.tfd_threshold)]
         
-        self.results = None
+        self.results = {}
    
     
     def get_results_for_cel(self,
@@ -80,13 +82,10 @@ class GenBench3D():
                             ) -> Dict[str, Any]:
         
         self.initialize()
-        self.results = {}
 
         for metric in self.graph_metrics:
             metric_name = metric.name
             logging.info(f'Computing {metric_name}')
-            if metric_name in self.mol_properties:
-                metric_name = f'Median {metric_name}'
             self.results[metric_name] = metric.get(cel)
         
         if self.training_cel is not None:
@@ -117,8 +116,8 @@ class GenBench3D():
                                                        training_cel=self.training_cel)
                    
         median_n_inv_bonds, median_n_inv_angles = self.validity3D.get_invalid_bonds_angles()
-        self.results['Median number of invalid bonds'] = median_n_inv_bonds
-        self.results['Median number of invalid angles'] = median_n_inv_angles
+        self.results['Number of invalid bonds'] = median_n_inv_bonds
+        self.results['Number of invalid angles'] = median_n_inv_angles
                
         return self.results
     

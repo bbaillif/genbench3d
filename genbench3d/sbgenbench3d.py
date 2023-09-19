@@ -39,17 +39,15 @@ class SBGenBench3D(GenBench3D):
         self._vina_scorer = VinaScorer.from_ligand(ligand=self.native_ligand,
                                                    vina_protein=vina_protein)
         self.native_ligand_vina_score = self._vina_scorer.score_mol(self.native_ligand)[0]
-        # self.absolute_vina_score = VinaScore(self._vina_scorer)
-        self.relative_vina_score = VinaScore(self._vina_scorer,
-                                             reference_score=self.native_ligand_vina_score,
-                                             name='Relative Vina score')
+        self.vina_score = VinaScore(self._vina_scorer)
+        # self.relative_vina_score = VinaScore(self._vina_scorer,
+        #                                      reference_score=self.native_ligand_vina_score,
+        #                                      name='Relative Vina score')
         self.ifp_similarity = IFPSimilarity(universe=self.pocket.protein.universe,
                                             native_ligand=self.native_ligand)
         self.espsim = ESPSIM(native_ligand=self.native_ligand)
         self.steric_clash = StericClash(pocket)
-        self.sbmetrics: List[Metric] = [
-            # self.absolute_vina_score,
-                                        self.relative_vina_score,
+        self.sbmetrics: List[Metric] = [self.vina_score,
                                         self.ifp_similarity,
                                         self.espsim,
                                         self.steric_clash]
@@ -65,6 +63,10 @@ class SBGenBench3D(GenBench3D):
         for metric in self.sbmetrics:
             logging.info(f'Evaluating {metric.name}')
             self.results[metric.name] = metric.get(cel)
+            
+        relative_scores = [score - self.native_ligand_vina_score
+                           for score in self.results[self.vina_score.name]]
+        self.results['Relative Vina score'] = relative_scores
         
         # absolute_vina_scores = self.get_vina_score(ligands=mols)
         # self.absolute_vina_scores = np.array(absolute_vina_scores)

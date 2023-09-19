@@ -1,5 +1,4 @@
 import pickle
-import torch
 import os
 import gzip
 import logging
@@ -12,6 +11,8 @@ from genbench3d.data import ComplexMinimizer
 from genbench3d.data.structure import (Pocket, 
                                        VinaProtein, 
                                        Protein)
+
+import torch
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -184,37 +185,37 @@ try:
                 d_model = {}
                 d_model['raw'] = results
                 
-                # # Minimize complexes
-                # clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
-                # minimized_target_path = os.path.join(minimized_path, target_dirname)
-                # if not os.path.exists(minimized_target_path):
-                #     os.mkdir(minimized_target_path)
-                # minimized_filename = 'generated_' + real_ligand_filename.replace('.sdf', 
-                #                                                             f'_{clean_model_name}_minimized.sdf')
-                # minimized_filepath = os.path.join(minimized_target_path,
-                #                                   minimized_filename)
+                # Minimize complexes
+                clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
+                minimized_target_path = os.path.join(minimized_path, target_dirname)
+                if not os.path.exists(minimized_target_path):
+                    os.mkdir(minimized_target_path)
+                minimized_filename = 'generated_' + real_ligand_filename.replace('.sdf', 
+                                                                            f'_{clean_model_name}_minimized.sdf')
+                minimized_filepath = os.path.join(minimized_target_path,
+                                                  minimized_filename)
                 
-                # if not os.path.exists(minimized_filepath):
-                #     mini_gen_mols = []
-                #     for mol in gen_mols_h:
-                #         mini_mol = complex_minimizer.minimize_ligand(mol)
-                #         if mini_mol is not None:
-                #             mini_gen_mols.append(mini_mol)
-                #     logging.info(f'Saving minimized molecules in {minimized_filepath}')
-                #     with Chem.SDWriter(minimized_filepath) as writer:
-                #         for i, mol in enumerate(mini_gen_mols):
-                #             writer.write(mol)
-                # else:
-                #     logging.info(f'Loading minimized molecules from {minimized_filepath}')
-                #     mini_gen_mols = [mol for mol in Chem.SDMolSupplier(minimized_filepath)]
+                if not os.path.exists(minimized_filepath):
+                    mini_gen_mols = []
+                    for mol in gen_mols_h:
+                        mini_mol = complex_minimizer.minimize_ligand(mol)
+                        if mini_mol is not None:
+                            mini_gen_mols.append(mini_mol)
+                    logging.info(f'Saving minimized molecules in {minimized_filepath}')
+                    with Chem.SDWriter(minimized_filepath) as writer:
+                        for i, mol in enumerate(mini_gen_mols):
+                            writer.write(mol)
+                else:
+                    logging.info(f'Loading minimized molecules from {minimized_filepath}')
+                    mini_gen_mols = [mol for mol in Chem.SDMolSupplier(minimized_filepath)]
                     
                 
-                # results = sbgenbench3D.get_results_for_mol_list(mols=mini_gen_mols,
-                #                                                 n_total_mols=100)
+                results = sbgenbench3D.get_results_for_mol_list(mols=mini_gen_mols,
+                                                                n_total_mols=100)
                 
-                # # import pdb;pdb.set_trace()
+                # import pdb;pdb.set_trace()
                 
-                # d_model['minimized'] = results
+                d_model['minimized'] = results
                     
                 d_target[model_name] = d_model
                 

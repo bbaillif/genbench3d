@@ -7,6 +7,7 @@ class Metric(ABC):
     def __init__(self,
                  name: str) -> None:
         self.name = name
+        self.value = None
         
     @abstractmethod
     def get(self,

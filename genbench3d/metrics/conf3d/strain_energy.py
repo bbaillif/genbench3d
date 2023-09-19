@@ -1,5 +1,3 @@
-import numpy as np
-
 from ..metric import Metric
 from genbench3d.conf_ensemble import GeneratedCEL
 from .energy_calculator import FFEnergyCalculator
@@ -32,6 +30,4 @@ class StrainEnergy(Metric):
             self.strain_energies[name] = mol_strain_energies
             all_strain_energies.extend(mol_strain_energies)
             
-        self.value = np.nanmedian(all_strain_energies)
-            
-        return self.value
+        return all_strain_energies

@@ -25,6 +25,7 @@ class StericClash(Metric):
         self.clashes = {}
         self.valid_pldist_conf_ids = defaultdict(list)
         self.n_valid = 0
+        all_n_clashes = []
         
         for name, ce in cel.items():
             ce_clashes = []
@@ -41,7 +42,7 @@ class StericClash(Metric):
                 ligand_atoms = atoms[self.pocket.mol.GetNumAtoms():]
                 distance_matrix = Chem.Get3DDistanceMatrix(mol=complx)
                 
-                is_clashing = False
+                n_clashes = 0
             
                 for atom1 in pocket_atoms:
                     idx1 = atom1.GetIdx()
@@ -65,7 +66,7 @@ class StericClash(Metric):
                             
                         distance = distance_matrix[idx1, idx2]
                         if distance < min_distance:
-                            is_clashing = True
+                            n_clashes = n_clashes + 1
                             invalid_d = {
                             'conf_id': conf_id,
                             'atom_idx1': idx1,
@@ -76,13 +77,15 @@ class StericClash(Metric):
                             }
                             ce_clashes.append(invalid_d)
                                     
-                if not is_clashing:
+                if n_clashes == 0:
                     self.valid_pldist_conf_ids[name].append(conf_id)
                     self.n_valid += 1
+                    
+                all_n_clashes.append(n_clashes)
                     
             if len(ce_clashes) > 0:
                 self.clashes[name] = ce_clashes
                     
         self.value = self.n_valid / cel.n_total_confs
                     
-        return self.value
+        return all_n_clashes

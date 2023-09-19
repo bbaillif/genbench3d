@@ -31,20 +31,36 @@ The main usage is to compute all metrics from a list of RDKit molecules `mol_lis
 ```python
 from genbench3d import GenBench3D
 benchmark = GenBench3D()
-metrics = benchmark.get_metrics_for_mol_list(mol_list)
+results = benchmark.get_results_for_mol_list(mol_list)
 ```
 
 To compute metrics that depends on the training molecules (e.g. training similarity, novelty2D and 3D), you need to input the `training_mols` list when creating the benchmark object:
 ```python
 benchmark = GenBench3D(training_mols=training_mols)
-metrics = benchmark.get_metrics_for_mol_list(mol_list)
+results = benchmark.get_results_for_mol_list(mol_list)
 ```
 
 When dealing with structure-based (= using pocket as input) generative models, you can use the `SBGenBench3D` version to add metrics related to activity. This new object needs the protein (as `original_structure_path` pdb filepath, and currently as an `clean_mda_prot` MDAnalysis Universe) and native ligands (as `native_ligand` RDKit molecule) as input to estimate relative activity.
 ```python
 from genbench3d import SBGenBench3D
 sb_benchmark = SBGenBench3D(original_structure_path, clean_mda_prot, native_ligand)
-metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
+results = sb_benchmark.get_results_for_mol_list(mol_list)
+```
+
+You can then aggregate all the compiled metrics:
+```python
+import numpy as np
+import pandas as pd
+summary = {}
+for metric_name, values in results.items():
+    if isinstance(values, dict): # e.g. Ring proportion
+        for key, value in values:
+            summary[metric_name + key] = value
+    elif isinstance(values, list):
+        summary[metric_name] = np.nanmedian(values) # values can have nan
+    else: # float or int
+        summary[metric_name] = values
+print(summary)
 ```
 
 ## Implemented metrics
@@ -58,31 +74,31 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 | Novelty2D | Fraction of molecules with a stereo-SMILES not in training molecules (if input) |
 | Diversity2D | Average Tanimoto dissimilarity (1 - similarity) of Morgan Fingerprints radius 3 with stereochemistry considered between all generated molecules|
 | Ring size proportion | Distribution of the proportion of observed ring sizes |
-| Median molecular weight (MW) | Self-explanatory |
-| Median logP | Using RDKit |
-| Median SAScore | Using RDKit implementation of SAScore TODO: put reference |
-| Median Quantitative Estimate of Drug-likeness (QED) | Using RDKit implementation of QED TODO: put reference |
+| Molecular weight (MW) | Self-explanatory |
+| logP | Using RDKit |
+| SAScore | Using RDKit implementation of SAScore TODO: put reference |
+| Quantitative Estimate of Drug-likeness (QED) | Using RDKit implementation of QED TODO: put reference |
 
 ### Based on molecular 3D conformation
 
 | Metric | Definition |
 | --- | --- |
 | Validity3D | Fraction of molecular conformations with valid bond lengths and valence angles (based on range of values observed in LigBoundConf, see `Validity3D` class for details) |
-| Average number of invalid bonds | Based on LigBoundConf observed ranges |
-| Average number of invalid angles | Based on LigBoundConf observed ranges |
+| Number of invalid bonds | A bond length is invalid if it is outside ranges observed in LigBoundConf |
+| Number of invalid angles | A valence angle value is invalid if it is outside ranges observed in LigBoundConf |
 | Uniqueness3D | Fraction of (3D-valid by default) unique conformations based on Torsion Fingerprint Deviation (TFD) with a default threshold of 0.2. Threshold can be input in `GenBench3D` with the `tfd_threshold` argument |
 | Novelty3D | Fraction of (3D-valid by default) conformations different from those observed in the training set (only on the set of common molecules between training and generated)  |
 | Diversity3D | Average interconformation deviation computed using the TFD|
-| Median MMFF94s strain energy | Using 1000 minimization step, computed using the MMFF94s RDKit implementation |
+| MMFF94s strain energy | Using up to 1000 minimization step, computed using the MMFF94s RDKit implementation |
 
 ### Structure-based metrics (based on a given protein pocket and native ligand)
 
 | Metric | Definition |
 | --- | --- |
-| Median absolute Vina score | Using Vina Python package |
-| Median Vina score relative to test ligand | Using Vina Python package |
-| Median Interaction FingerPrint (IFP) similarity to test ligand | Using ProLiF Python package |
-| Median Electrostatic shape similarity (ESPSIM) to test ligand | Using ESPSIM Python package |
+| Absolute Vina score | Using Vina Python package |
+| Vina score relative to test ligand | Using Vina Python package |
+| Interaction FingerPrint (IFP) similarity to test ligand | Using ProLiF Python package |
+| Electrostatic shape similarity (ESPSIM) to test ligand | Using ESPSIM Python package |
 
 ## Details
 Under the hood, the GenBench3D is transforming the molecule list (generated molecules or training molecules) into a `ConfEnsembleLibrary`, a structure that groups the conformations of the same molecule (i.e. molecule topological graph and stereochemistry) into unique `ConfEnsemble` (wrapper around a single RDKit molecule having multiple Conformer), under a default name that is the SMILES representation

@@ -45,5 +45,4 @@ class MolProperty(Metric):
                 # import pdb;pdb.set_trace()
                 logging.warning(f'Computing of {self.name} for {name} has failed')
         
-        self.value = np.median(all_values)
-        return self.value
+        return all_values
