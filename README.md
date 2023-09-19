@@ -40,10 +40,15 @@ benchmark = GenBench3D(training_mols=training_mols)
 results = benchmark.get_results_for_mol_list(mol_list)
 ```
 
-When dealing with structure-based (= using pocket as input) generative models, you can use the `SBGenBench3D` version to add metrics related to activity. This new object needs the protein (as `original_structure_path` pdb filepath, and currently as an `clean_mda_prot` MDAnalysis Universe) and native ligands (as `native_ligand` RDKit molecule) as input to estimate relative activity.
+When dealing with structure-based (= using pocket as input) generative models, you can use the `SBGenBench3D` version to add metrics related to activity. This new object needs the Vina preparated protein (done with the `VinaProtein` class from the original `pdb_filepath`), the pocket (extracted from the protonated = "clean" protein produced during Vina processing) and native ligands (as `native_ligand` RDKit molecule) as input to estimate relative activity.
 ```python
 from genbench3d import SBGenBench3D
-sb_benchmark = SBGenBench3D(original_structure_path, clean_mda_prot, native_ligand)
+from genbench3d.data.structure import VinaProtein, Protein, Pocket
+vina_protein = VinaProtein(pdb_filepath=pdb_filepath)
+protein_clean = Protein(vina_protein.protein_clean_filepath)
+pocket = Pocket(protein=protein_clean,
+                native_ligand=native_ligand)
+sb_benchmark = SBGenBench3D(vina_protein, pocket, native_ligand)
 results = sb_benchmark.get_results_for_mol_list(mol_list)
 ```
 

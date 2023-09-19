@@ -162,12 +162,12 @@ try:
                                                     target_dirname,
                                                     pdb_filename)
             
-            protein = VinaProtein(pdb_filepath=original_structure_path)
-            protein_clean = Protein(protein.protein_clean_filepath)
+            vina_protein = VinaProtein(pdb_filepath=original_structure_path)
+            protein_clean = Protein(vina_protein.protein_clean_filepath)
             pocket = Pocket(protein=protein_clean, 
                             native_ligand=native_ligand)
             
-            sbgenbench3D = SBGenBench3D(protein,
+            sbgenbench3D = SBGenBench3D(vina_protein,
                                         pocket,
                                         native_ligand)
             
