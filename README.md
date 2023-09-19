@@ -11,16 +11,17 @@ Benchmarking deep learning models generating molecules in 3D
 - vina (for Vina docking score)
 
 ## Installation
-The easiest way is to use the given environment.yml using Conda (or Mamba which is faster):  
-`conda env create -f environment.yml`  
-You then need to activate the environment:  
-`conda activate genbench3d`  
-Clone the espsim repository:  
-`git clone https://github.com/hesther/espsim/tree/master`  
-Go into the espsim directory, and use the pip local installation (develop):  
+Run these commands to download genbench3d (and espsim), then install in development mode in pip:  
 ```bash
+git clone https://github.com/bbaillif/genbench3d.git
+cd genbench3d
+conda env create -f environment.yml
+conda activate genbench3d
+git clone https://github.com/hesther/espsim.git
 cd espsim
-pip install -e .
+pip install -e . # install espsim in current environment
+cd ..
+pip install -e . # install genbench3d in current environment
 ```
 
 I am planning to put it on pip/conda, but for now it is a standalone
@@ -82,7 +83,6 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 | Median Vina score relative to test ligand | Using Vina Python package |
 | Median Interaction FingerPrint (IFP) similarity to test ligand | Using ProLiF Python package |
 | Median Electrostatic shape similarity (ESPSIM) to test ligand | Using ESPSIM Python package |
-
 
 ## Details
 Under the hood, the GenBench3D is transforming the molecule list (generated molecules or training molecules) into a `ConfEnsembleLibrary`, a structure that groups the conformations of the same molecule (i.e. molecule topological graph and stereochemistry) into unique `ConfEnsemble` (wrapper around a single RDKit molecule having multiple Conformer), under a default name that is the SMILES representation
