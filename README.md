@@ -1,10 +1,30 @@
 # GenBench3D
 Benchmarking deep learning models generating molecules in 3D
 
-# Installation
-TODO, I am planning to put it on pip/conda, but for now it is a standalone
+## Requirements
+- Python 3.11
+- RDKit > 2022.09 (molecule handling + 2022.09 required for rdDetermineBonds)
+- ProLIF (IFP similarity)
+- espsim (electrostatic shape similarity)
+- ase (read asedb files, useful to store xyz coordinates)
+- openbabel (for molecule protonation + second bond determination option)
 
-# Usage
+## Installation
+The easiest way is to use the given environment.yml
+`conda env create -f environment.yml`
+You then need to activate the environment
+`conda activate genbench3d`
+Clone the espsim repository
+`git clone https://github.com/hesther/espsim/tree/master`
+Go into the espsim directory, and use the pip local installation (develop)
+```bash
+cd espsim
+pip install -e .
+```
+
+I am planning to put it on pip/conda, but for now it is a standalone
+
+## Usage
 The main usage is to compute all metrics from a list of RDKit molecules `mol_list`:
 ```python
 from genbench3d import GenBench3D
@@ -25,9 +45,9 @@ sb_benchmark = SBGenBench3D(original_structure_path, clean_mda_prot, native_liga
 metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 ```
 
-# Implemented metrics
+## Implemented metrics
 
-## Based on topological graph (traditionally used to evaluate SMILES or molecular graph generators)
+### Based on topological graph (traditionally used to evaluate SMILES or molecular graph generators)
 
 | Metric | Definition |
 | --- | --- |
@@ -41,7 +61,7 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 | Median SAScore | Using RDKit implementation of SAScore TODO: put reference |
 | Median Quantitative Estimate of Drug-likeness (QED) | Using RDKit implementation of QED TODO: put reference |
 
-## Based on molecular 3D conformation
+### Based on molecular 3D conformation
 
 | Metric | Definition |
 | --- | --- |
@@ -53,7 +73,7 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 | Diversity3D | Average interconformation deviation computed using the TFD|
 | Median MMFF94s strain energy | Using 1000 minimization step, computed using the MMFF94s RDKit implementation |
 
-## Structure-based metrics (based on a given protein pocket and native ligand)
+### Structure-based metrics (based on a given protein pocket and native ligand)
 
 | Metric | Definition |
 | --- | --- |
@@ -63,7 +83,7 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 | Median Electrostatic shape similarity (ESPSIM) to test ligand | Using ESPSIM Python package |
 
 
-# Details
+## Details
 Under the hood, the GenBench3D is transforming the molecule list (generated molecules or training molecules) into a `ConfEnsembleLibrary`, a structure that groups the conformations of the same molecule (i.e. molecule topological graph and stereochemistry) into unique `ConfEnsemble` (wrapper around a single RDKit molecule having multiple Conformer), under a default name that is the SMILES representation
 ```python
 from conf_ensemble import ConfEnsembleLibrary
