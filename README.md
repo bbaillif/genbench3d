@@ -11,13 +11,13 @@ Benchmarking deep learning models generating molecules in 3D
 - vina (for Vina docking score)
 
 ## Installation
-The easiest way is to use the given environment.yml using Conda (or Mamba which is faster):
+The easiest way is to use the given environment.yml using Conda (or Mamba which is faster):  
 `conda env create -f environment.yml`  
-You then need to activate the environment:
+You then need to activate the environment:  
 `conda activate genbench3d`  
-Clone the espsim repository:
+Clone the espsim repository:  
 `git clone https://github.com/hesther/espsim/tree/master`  
-Go into the espsim directory, and use the pip local installation (develop):
+Go into the espsim directory, and use the pip local installation (develop):  
 ```bash
 cd espsim
 pip install -e .
