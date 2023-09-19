@@ -35,6 +35,7 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 | Uniqueness2D | Fraction of unique molecules (based on SMILES with stereochemistry embeded) |
 | Novelty2D | Fraction of molecules with a stereo-SMILES not in training molecules (if input) |
 | Diversity2D | Average Tanimoto dissimilarity (1 - similarity) of Morgan Fingerprints radius 3 with stereochemistry considered between all generated molecules|
+| Ring size proportion | Distribution of the proportion of observed ring sizes |
 | Median molecular weight (MW) | Self-explanatory |
 | Median logP | Using RDKit |
 | Median SAScore | Using RDKit implementation of SAScore TODO: put reference |
@@ -63,15 +64,15 @@ metrics = sb_benchmark.get_metrics_for_mol_list(mol_list)
 
 
 # Details
-Under the hood, the GenBench3D is transforming the molecule list (generated molecules and training molecules) into a `ConfEnsembleLibrary`, a structure that groups the conformations of the same molecule (i.e. molecule topological graph and stereochemistry) into unique `ConfEnsemble` (wrapper around a single RDKit molecule), under a default name that is the SMILES representation
+Under the hood, the GenBench3D is transforming the molecule list (generated molecules or training molecules) into a `ConfEnsembleLibrary`, a structure that groups the conformations of the same molecule (i.e. molecule topological graph and stereochemistry) into unique `ConfEnsemble` (wrapper around a single RDKit molecule having multiple Conformer), under a default name that is the SMILES representation
 ```python
 from conf_ensemble import ConfEnsembleLibrary
 cel = ConfEnsembleLibrary.from_mol_list(mol_list)
 ```
-`cel.library` is a dictionary in the form {SMILES: conf_ensemble}
+`cel.library` is a dictionary in the form {SMILES (or other specified name): conf_ensemble}  
 `conf_ensemble.mol` gives the RDKit molecule containing each listed conformation of that molecule in the original `mol_list`
 
-You have different ways on inputing molecules in the benchmark.
+You have different ways of inputing molecules in the benchmark.
 If the model generated xyz coordinates in an ASE db (i.e. GSchNet) you can use the ASEDBReader
 ```python
 ase_db_path = "your favorite path"
@@ -83,5 +84,3 @@ This reader is directly embedded in the benchmark:
 benchmark = GenBench3D()
 metrics = benchmark.get_metrics_for_ase_db(filepath=ase_db_path,
                                             cel_name='generated_molecules')
-```# 3DGenMolBenchmark
-Benchmarking deep learning models generating molecules in 3D
