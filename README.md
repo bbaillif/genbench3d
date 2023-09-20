@@ -11,7 +11,7 @@ Benchmarking deep learning models generating molecules in 3D
 - vina (for Vina docking score)
 
 ## Installation
-I am planning to put it on pip/conda, but for now it is a standalone
+I am planning to put it on pip/conda, but for now it is a standalone. 
 Run these commands to download genbench3d (and espsim), then install in development mode in pip:  
 ```bash
 git clone https://github.com/bbaillif/genbench3d.git
