@@ -33,6 +33,7 @@ if not os.path.exists(minimized_path):
 targetdiff_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/targetdiff_vina_docked.pt'
 ligan_post_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/cvae_vina_docked.pt'
 
+# The results loading will be replaced to avoid using torch.
 targetdiff_results = torch.load(targetdiff_path, map_location='cpu')
 ligan_post_results = torch.load(ligan_post_path, map_location='cpu')
 

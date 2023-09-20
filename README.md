@@ -105,6 +105,10 @@ print(summary)
 | Interaction FingerPrint (IFP) similarity to test ligand | Using ProLiF Python package |
 | Electrostatic shape similarity (ESPSIM) to test ligand | Using ESPSIM Python package |
 
+## Set of generated molecules
+
+Will be uploaded soon to reproduce poster/presentation results
+
 ## Details
 Under the hood, the GenBench3D is transforming the molecule list (generated molecules or training molecules) into a `ConfEnsembleLibrary`, a structure that groups the conformations of the same molecule (i.e. molecule topological graph and stereochemistry) into unique `ConfEnsemble` (wrapper around a single RDKit molecule having multiple Conformer), under a default name that is the SMILES representation
 ```python
