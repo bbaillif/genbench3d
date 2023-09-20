@@ -87,23 +87,6 @@ class SBGenBench3D(GenBench3D):
         
         return dict(self.results)
 
-        
-    # def get_vina_score(self,
-    #                     ligands: List[Mol]) -> List[float]:
-    #     self.vina_scores = []
-        
-    #     for ligand in ligands:
-    #         try:
-    #             energies = self._vina_scorer.score_mol(ligand)
-    #             score = energies[0]
-
-    #         except Exception as e:
-    #             logging.warning(f'Vina scoring error: {e}')
-    #             score = np.nan
-                
-    #         self.vina_scores.append(score)
-    #     return list(self.vina_scores)
-    
     
     # def gold_plp_score_ligands(self,
     #                         ligands: List[Mol],
@@ -147,40 +130,3 @@ class SBGenBench3D(GenBench3D):
         
     #     self.gold_plp_scores.extend(scores)
     
-    
-    # def get_ifp_sims(self,
-    #                 ligands: List[Mol]) -> List[float]:
-    #     self.ifp_sims = []
-    #     try:
-    #         ligands = [Chem.AddHs(ligand, addCoords=True) for ligand in ligands]
-            
-    #         fp = plf.Fingerprint()
-    #         lig_list = [plf.Molecule.from_rdkit(self.native_ligand)] \
-    #             + [plf.Molecule.from_rdkit(ligand) for ligand in ligands]
-    #         fp.run_from_iterable(lig_iterable=lig_list,
-    #                              prot_mol=self._prolif_mol, 
-    #                              progress=False)
-    #         df = fp.to_dataframe()
-            
-    #         bvs = plf.to_bitvectors(df)
-    #         for i, bv in enumerate(bvs[1:]):
-    #             sim = DataStructs.TanimotoSimilarity(bvs[0], bv)
-    #             self.ifp_sims.append(sim)
-    #     except Exception as e:
-    #         logging.warning(f'IFP computation error: {e}')
-            
-    #     return list(self.ifp_sims)
-    
-    
-    # def get_espsims(self,
-    #                 ligands: List[Mol]) -> List[float]:
-    #     self.esp_sims = []
-    #     for ligand in ligands:
-    #         try:
-    #             ligand = Chem.AddHs(ligand, addCoords=True)
-    #             esp_sim = GetEspSim(ligand, self.native_ligand, renormalize=True)
-    #         except Exception as e:
-    #             logging.warning(f'ESPSIM computation error: {e}')
-    #             esp_sim = np.nan
-    #         self.esp_sims.append(esp_sim)
-    #     return list(self.esp_sims)
