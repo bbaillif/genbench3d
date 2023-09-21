@@ -3,3 +3,4 @@ from .vina_score import VinaScore
 from .steric_clash import StericClash
 from .ifp_similarity import IFPSimilarity
 from .espsim import ESPSIM
+from .gold_plp_score import GoldPLPScore

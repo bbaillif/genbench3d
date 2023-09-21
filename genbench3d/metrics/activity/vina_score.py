@@ -30,6 +30,8 @@ class VinaScore(Metric):
                 try:
                     # start_time = time.time()
                     energies = self.vina_scorer.score_mol(mol)
+                    if energies is None:
+                        raise Exception('Failed molecule preparation')
                     # logging.info(f'Time: {time.time() - start_time}')
                     score = energies[0]
                     relative_score = score - self.reference_score

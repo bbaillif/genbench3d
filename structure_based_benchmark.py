@@ -12,8 +12,6 @@ from genbench3d.data.structure import (Pocket,
                                        VinaProtein, 
                                        Protein)
 
-import torch
-
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
 
@@ -30,12 +28,14 @@ minimized_path = '/home/bb596/hdd/ThreeDGenMolBenchmark/minimized/'
 if not os.path.exists(minimized_path):
     os.mkdir(minimized_path)
 
-targetdiff_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/targetdiff_vina_docked.pt'
-ligan_post_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/cvae_vina_docked.pt'
+targetdiff_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/targetdiff_vina_docked.p'
+ligan_post_path = '../hdd/ThreeDGenMolBenchmark/targetdiff/cvae_vina_docked.p'
 
 # The results loading will be replaced to avoid using torch.
-targetdiff_results = torch.load(targetdiff_path, map_location='cpu')
-ligan_post_results = torch.load(ligan_post_path, map_location='cpu')
+with open(targetdiff_path, 'rb') as f:
+    targetdiff_results = pickle.load(f)
+with open(ligan_post_path, 'rb') as f:
+    ligan_post_results = pickle.load(f)
 
 # the i-th target is making the IFP script crash
 # MDA cannot read/transform into rdmol
@@ -182,6 +182,8 @@ try:
                 gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
                 results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols_h,
                                                                 n_total_mols=100)
+                    
+                # import pdb;pdb.set_trace()
                     
                 d_model = {}
                 d_model['raw'] = results

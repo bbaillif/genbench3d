@@ -3,7 +3,8 @@ import os
 from typing import List, Union
 from rdkit import Chem
 from rdkit.Chem import Mol
-from meeko import MoleculePreparation
+from meeko import (MoleculePreparation,
+                   PDBQTWriterLegacy)
 # from params import (VINA_BIN_FILEPATH, 
 #                     VINA_URL, 
 #                     VINA_DIRPATH)
@@ -156,16 +157,21 @@ class VinaScorer():
             ligand = Chem.AddHs(ligand, addCoords=True)
         
         preparator = MoleculePreparation()
-        preparator.prepare(ligand)
-        pdbqt_string = preparator.write_pdbqt_string()
-        self._vina.set_ligand_from_string(pdbqt_string)
-        
-        if minimized:
-            energies = self._vina.optimize()
+        mol_setups = preparator.prepare(ligand)
+        mol_setup = mol_setups[0]
+        pdbqt_string, is_ok, error_msg = PDBQTWriterLegacy.write_string(setup=mol_setup, 
+                                                                        bad_charge_ok=True)
+        if is_ok:
+            self._vina.set_ligand_from_string(pdbqt_string)
+            
+            if minimized:
+                energies = self._vina.optimize()
+            else:
+                energies = self._vina.score()
+            if output_filepath is not None:
+                self._vina.write_pose(output_filepath, overwrite=True)
         else:
-            energies = self._vina.score()
-        if output_filepath is not None:
-            self._vina.write_pose(output_filepath, overwrite=True)
+            energies = None
         return energies
         
         

@@ -14,6 +14,7 @@ from .conf3d import (Validity3D,
                      StrainEnergy)
 from .activity import (VinaScorer,
                        VinaScore,
+                       GoldPLPScore,
                        IFPSimilarity,
                        ESPSIM,
                        StericClash)

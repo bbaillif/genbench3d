@@ -6,6 +6,7 @@ from rdkit import Chem
 from rdkit.Chem import Mol
 from .metrics import (VinaScorer,
                       VinaScore,
+                      GoldPLPScore,
                       IFPSimilarity,
                       ESPSIM,
                       StericClash)
@@ -43,11 +44,15 @@ class SBGenBench3D(GenBench3D):
         # self.relative_vina_score = VinaScore(self._vina_scorer,
         #                                      reference_score=self.native_ligand_vina_score,
         #                                      name='Relative Vina score')
+        self.plp_score = GoldPLPScore(protein_path=self.vina_protein.protein_clean_filepath,
+                                      native_ligand=native_ligand)
+        self.native_ligand_plp_score = self.plp_score.gold_scorer.score_mols([native_ligand])[0]
         self.ifp_similarity = IFPSimilarity(universe=self.pocket.protein.universe,
                                             native_ligand=self.native_ligand)
         self.espsim = ESPSIM(native_ligand=self.native_ligand)
         self.steric_clash = StericClash(pocket)
         self.sbmetrics: List[Metric] = [self.vina_score,
+                                        self.plp_score,
                                         self.ifp_similarity,
                                         self.espsim,
                                         self.steric_clash]
@@ -64,9 +69,13 @@ class SBGenBench3D(GenBench3D):
             logging.info(f'Evaluating {metric.name}')
             self.results[metric.name] = metric.get(cel)
             
-        relative_scores = [score - self.native_ligand_vina_score
+        relative_vina_scores = [score - self.native_ligand_vina_score
                            for score in self.results[self.vina_score.name]]
-        self.results['Relative Vina score'] = relative_scores
+        self.results['Relative Vina score'] = relative_vina_scores
+        
+        relative_plp_scores = [score - self.native_ligand_vina_score
+                           for score in self.results[self.plp_score.name]]
+        self.results['Relative PLP score'] = relative_plp_scores
         
         # absolute_vina_scores = self.get_vina_score(ligands=mols)
         # self.absolute_vina_scores = np.array(absolute_vina_scores)

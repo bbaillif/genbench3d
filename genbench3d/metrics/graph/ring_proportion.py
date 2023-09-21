@@ -19,6 +19,7 @@ class RingProportion(Metric) :
             all_ring_sizes.extend(ring_sizes)
             
         self.counter = Counter(all_ring_sizes)
-        self.value = {k: v / self.counter.total()
+        counter_total = sum(self.counter.values())
+        self.value = {k: v / counter_total
                       for k, v in self.counter.items()}
         return self.value
