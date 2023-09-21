@@ -103,6 +103,8 @@ print(summary)
 | --- | --- |
 | Absolute Vina score | Using Vina Python package |
 | Vina score relative to test ligand | Using Vina Python package |
+| Absolute Gold PLP score | Using CSD Python API, CCDC tools required |
+| Gold PLP score relative to test ligand | Using CSD Python API, CCDC tools required |
 | Interaction FingerPrint (IFP) similarity to test ligand | Using ProLiF Python package |
 | Electrostatic shape similarity (ESPSIM) to test ligand | Using ESPSIM Python package |
 
