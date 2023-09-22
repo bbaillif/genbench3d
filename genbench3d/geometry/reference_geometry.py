@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pickle
-# import logging
+import logging
 
 from abc import abstractmethod, ABC
 from typing import List, Dict
@@ -9,6 +9,8 @@ from tqdm import tqdm
 from collections import defaultdict
 from genbench3d.params import DATA_DIRPATH
 from rdkit.Chem import Mol
+from ccdc.io import Molecule
+from genbench3d.utils import ccdc_mol_to_rdkit_mol
 from .geometry_extractor import GeometryExtractor
 
 
@@ -30,7 +32,7 @@ class ReferenceGeometry(ABC):
     
     
     @abstractmethod
-    def load_ligands(self) -> List[Mol]:
+    def get_mol_iterator(self) -> List[Mol]:
         raise NotImplementedError()
     
     
@@ -50,13 +52,41 @@ class ReferenceGeometry(ABC):
         
         print(f'Compiling geometry ranges for {self.source_name}')
         
-        ligands = self.load_ligands()
-        bond_values = self.compile_bond_lengths(ligands)
-        angle_values = self.compile_angle_values(ligands)
-        torsion_values = self.compile_torsion_values(ligands)
-        values = {'bond_length': bond_values,
-                  'angle_values': angle_values,
-                  'torsion_values': torsion_values}
+        mol_iterator = self.get_mol_iterator()
+        
+        all_bond_values = defaultdict(list)
+        all_angle_values = defaultdict(list)
+        all_torsion_values = defaultdict(list)
+        
+        for mol in tqdm(mol_iterator):
+            if isinstance(mol, Molecule):
+                try:
+                    mol = ccdc_mol_to_rdkit_mol(mol)
+                except Exception as e:
+                    logging.warning('CCDC mol could not be converted to RDKit :' + str(e))
+            
+            if mol is not None:
+                assert isinstance(mol, Mol)
+                
+                mol_bond_values = self.get_mol_bond_lengths(mol)
+                for bond_string, bond_values in mol_bond_values.items():
+                    all_bond_values[bond_string].extend(bond_values)
+                
+                mol_angle_values = self.get_mol_angle_values(mol)
+                for angle_string, angle_values in mol_angle_values.items():
+                    all_angle_values[angle_string].extend(angle_values)
+                    
+                mol_torsion_values = self.get_mol_torsion_values(mol)
+                for torsion_string, torsion_values in mol_torsion_values.items():
+                    all_torsion_values[torsion_string].extend(torsion_values)
+            
+        # bond_values = self.compile_bond_lengths(mols)
+        # angle_values = self.compile_angle_values(mols)
+        # torsion_values = self.compile_torsion_values(mols)
+        
+        values = {'bond_length': all_bond_values,
+                  'angle_values': all_angle_values,
+                  'torsion_values': all_torsion_values}
         
         with open(self.values_filepath, 'wb') as f:
             pickle.dump(values, f)
@@ -97,75 +127,61 @@ class ReferenceGeometry(ABC):
         
         return ranges
               
-                        
-    def compile_bond_lengths(self,
-                             ligands: List[Mol],
-                             ) -> Dict[str, List[float]]:
-        
-        print('Compiling bond lengths')
-        
+              
+    def get_mol_bond_lengths(self,
+                             mol: Mol) -> Dict[str, List[float]]:
         bond_values = defaultdict(list)
-        for i, mol in enumerate(tqdm(ligands)):
-            for bond in mol.GetBonds():
-                bond_string = self.geometry_extractor.get_bond_string(bond)
-                for conf in mol.GetConformers():
-                    bond_length = self.geometry_extractor.get_bond_length(conf, bond)
-                    bond_values[bond_string].append(bond_length)
-                    
+        for bond in mol.GetBonds():
+            bond_string = self.geometry_extractor.get_bond_string(bond)
+            for conf in mol.GetConformers():
+                bond_length = self.geometry_extractor.get_bond_length(conf, bond)
+                bond_values[bond_string].append(bond_length)
         return bond_values
     
     
-    def compile_angle_values(self,
-                              ligands: List[Mol],
-                             ) -> Dict[str, List[float]]:
-        
-        print('Compiling valence angle values')
-        
+    def get_mol_angle_values(self,
+                             mol: Mol) -> Dict[str, List[float]]:
         angle_values = defaultdict(list)
-        for i, mol in enumerate(tqdm(ligands)):
-            angles_atom_ids = self.geometry_extractor.get_angles_atom_ids(mol)
-            for begin_atom_idx, second_atom_idx, end_atom_idx in angles_atom_ids :
+        angles_atom_ids = self.geometry_extractor.get_angles_atom_ids(mol)
+        for begin_atom_idx, second_atom_idx, end_atom_idx in angles_atom_ids :
+            
+            angle_string = self.geometry_extractor.get_angle_string(mol, 
+                                                                    begin_atom_idx, 
+                                                                    second_atom_idx, 
+                                                                    end_atom_idx)
                 
-                angle_string = self.geometry_extractor.get_angle_string(mol, 
-                                                                        begin_atom_idx, 
-                                                                        second_atom_idx, 
+            for conf in mol.GetConformers():
+                angle_value = self.geometry_extractor.get_angle_value(conf,
+                                                                        begin_atom_idx,
+                                                                        second_atom_idx,
                                                                         end_atom_idx)
-                    
-                for conf in mol.GetConformers():
-                    angle_value = self.geometry_extractor.get_angle_value(conf,
-                                                                          begin_atom_idx,
-                                                                          second_atom_idx,
-                                                                          end_atom_idx)
-                    angle_values[angle_string].append(angle_value)
-                    
+                angle_values[angle_string].append(angle_value)
+                
         return angle_values
-                    
-                    
-    def compile_torsion_values(self,
-                              ligands: List[Mol],
-                             ) -> Dict[str, List[float]]:
         
-        print('Compiling torsion angle values')
+                    
+    def get_mol_torsion_values(self,
+                               mol: Mol,
+                               ) -> Dict[str, List[float]]:
         
         torsion_values = defaultdict(list)
-        for i, mol in enumerate(tqdm(ligands)):
-            torsion_atom_ids = self.geometry_extractor.get_torsions_atom_ids(mol)
-            for begin_atom_idx, second_atom_idx, third_atom_idx, end_atom_idx in torsion_atom_ids :
+        torsion_atom_ids = self.geometry_extractor.get_torsions_atom_ids(mol)
+        for begin_atom_idx, second_atom_idx, third_atom_idx, end_atom_idx in torsion_atom_ids :
+            
+            torsion_string = self.geometry_extractor.get_torsion_string(mol,
+                                                                        begin_atom_idx,
+                                                                        second_atom_idx,
+                                                                        third_atom_idx,
+                                                                        end_atom_idx)
                 
-                torsion_string = self.geometry_extractor.get_torsion_string(mol,
+            for conf in mol.GetConformers():
+                torsion_value = self.geometry_extractor.get_torsion_value(conf,
                                                                             begin_atom_idx,
                                                                             second_atom_idx,
                                                                             third_atom_idx,
                                                                             end_atom_idx)
-                    
-                for conf in mol.GetConformers():
-                    torsion_value = self.geometry_extractor.get_torsion_value(conf,
-                                                                              begin_atom_idx,
-                                                                              second_atom_idx,
-                                                                              third_atom_idx,
-                                                                              end_atom_idx)
-                    if not np.isnan(torsion_value):
-                        torsion_values[torsion_string].append(torsion_value)
+                if not np.isnan(torsion_value):
+                    torsion_values[torsion_string].append(torsion_value)
                         
         return torsion_values
     

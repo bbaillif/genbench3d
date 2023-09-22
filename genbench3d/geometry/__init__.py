@@ -1,3 +1,4 @@
 from .geometry_extractor import GeometryExtractor
 from .reference_geometry import ReferenceGeometry
 from .ligboundconf_geometry import LigBoundConfGeometry
+from .csd_geometry import CSDGeometry

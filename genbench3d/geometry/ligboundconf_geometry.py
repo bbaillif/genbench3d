@@ -10,7 +10,6 @@ class LigBoundConfGeometry(ReferenceGeometry):
         super().__init__(root, source_name)
         
         
-    def load_ligands(self):
+    def get_mol_iterator(self):
         minimized_path = LIGBOUNDCONF_MINIMIZED_FILEPATH
-        ligands = [mol for mol in Chem.SDMolSupplier(minimized_path) if mol is not None]
-        return ligands
+        return Chem.SDMolSupplier(minimized_path)
