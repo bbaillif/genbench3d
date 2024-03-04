@@ -38,7 +38,7 @@ class Diversity3D(Metric):
                         for icd in icds 
                         if icd != 0])
         else:
-            diversity_3D = 0
+            diversity_3D = np.nan
             
         self.value = diversity_3D
             

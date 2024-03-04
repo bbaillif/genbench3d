@@ -1,16 +1,20 @@
+import warnings
+warnings.filterwarnings("ignore")
+
 import pickle
 import os
 import gzip
 import logging
 
-from copy import deepcopy
 from rdkit import Chem
 from tqdm import tqdm
 from genbench3d import SBGenBench3D
 from genbench3d.data import ComplexMinimizer
 from genbench3d.data.structure import (Pocket, 
                                        VinaProtein, 
+                                       GlideProtein,
                                        Protein)
+from genbench3d.conf_ensemble import ConfEnsembleLibrary
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -21,6 +25,10 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
                     filename='structure_based_benchmark.log', 
                     encoding='utf-8', 
                     level=logging.INFO)
+
+results_dirpath = '/home/bb596/hdd/ThreeDGenMolBenchmark/results/'
+if not os.path.exists(results_dirpath):
+    os.mkdir(results_dirpath)
 
 cd_dirpath = '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/'
 
@@ -39,8 +47,8 @@ with open(ligan_post_path, 'rb') as f:
 
 # the i-th target is making the IFP script crash
 # MDA cannot read/transform into rdmol
-crashing_target_i = [26, 32, 38, 44, 45, 52, 65]
-# crashing_target_i = []
+# crashing_target_i = [26, 32, 38, 44, 45, 52, 65]
+crashing_target_i = []
 
 i_to_ligand_filename = {}
 
@@ -124,37 +132,68 @@ for i, ligand_filename in i_to_ligand_filename.items():
     gen_mols_filepath = os.path.join(ligan_prior_path, f'Generated_{i}_lig_gen_fit_add.sdf.gz')
     gz_stream = gzip.open(gen_mols_filepath)
     with Chem.ForwardSDMolSupplier(gz_stream) as gzsuppl:
-        mols = [mol 
-                for mol in gzsuppl
-                if (mol is not None) 
-                    and (mol.GetNumAtoms() > 0)
-                    and (not '.' in Chem.MolToSmiles(mol))]
+        mols = []
+        for mol in gzsuppl:
+            try:
+                if (mol is not None) and (mol.GetNumAtoms() > 0) and (not '.' in Chem.MolToSmiles(mol)) :
+                    mols.append(mol)
+            except Exception as e:
+                print(f'Mol not read exception: {e}')
         gen_mols = mols
         
     ligan_prior_gen_mols[ligand_filename] = gen_mols
     
+    
+# Gather ResGen generated mols
+logging.info('ResGen')
+resgen_gen_mols = {}
+resgen_path = '/home/bb596/hdd/ThreeDGenMolBenchmark/ResGen/test_set'
+for ligand_filename in targetdiff_gen_mols:
+    gen_mols_filename = ligand_filename.replace('/', '/generated_').replace('.sdf', '_pocket10.pdb.sdf')
+    gen_mols_filepath = os.path.join(resgen_path, gen_mols_filename)
+    if os.path.exists(gen_mols_filepath):
+        try:
+            gen_mols = [mol for mol in Chem.SDMolSupplier(gen_mols_filepath) if mol is not None]
+            resgen_gen_mols[ligand_filename] = gen_mols
+        except:
+            print('Wrong file ', ligand_filename)
+    else:
+        print(gen_mols_filepath, ' does not exists')
+    
+    
 model_to_gen_mols = {
     'LiGAN (prior)': ligan_prior_gen_mols,
-    'LiGAN (posterior)': ligan_post_gen_mols,
+    # 'LiGAN (posterior)': ligan_post_gen_mols,
     '3D-SBDD': three_d_sbdd_gen_mols,
     'Pocket2Mol': pocket2mol_gen_mols,
     'TargetDiff': targetdiff_gen_mols,
     'DiffSBDD': diffsbdd_gen_mols,
+    'ResGen': resgen_gen_mols
 }
 
-d_results = {} # {target_name: {model_name: {rawOrProcessed: {metric: values_list}}}}
+train_ligand_path = '../hdd/ThreeDGenMolBenchmark/train_ligand_cd.sdf'
+
+train_ligands = [mol for mol in Chem.SDMolSupplier(train_ligand_path)][:10]
+training_mols = []
+for mol in train_ligands:
+    if mol is not None:
+        training_mols.append(Chem.AddHs(mol, addCoords=True))
+training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
+
+# d_results = {} # {target_name: {model_name: {rawOrProcessed: {metric: values_list}}}}
 
 logging.info('Starting benchmark')
 try:
-    for i, ligand_filename in tqdm(list(i_to_ligand_filename.items())[2:]):
-        
+    for i, ligand_filename in tqdm(list(i_to_ligand_filename.items())):
+
         try:
         
             logging.info(ligand_filename)
             
-            d_target = {}
+            # d_target = {}
             
             native_ligand = native_ligands[ligand_filename]
+            native_ligand = Chem.AddHs(native_ligand, addCoords=True)
             
             #ligand_filename is actually TARGET_NAME/ligand_filename.sdf
             target_dirname, real_ligand_filename = ligand_filename.split('/') 
@@ -163,73 +202,125 @@ try:
                                                     target_dirname,
                                                     pdb_filename)
             
+            
             vina_protein = VinaProtein(pdb_filepath=original_structure_path)
             protein_clean = Protein(vina_protein.protein_clean_filepath)
             pocket = Pocket(protein=protein_clean, 
                             native_ligand=native_ligand)
-            
-            sbgenbench3D = SBGenBench3D(vina_protein,
-                                        pocket,
-                                        native_ligand)
-            
+            glide_protein = GlideProtein(pdb_filepath=vina_protein.protein_clean_filepath,
+                                        native_ligand=native_ligand)
+
             complex_minimizer = ComplexMinimizer(pocket)
+            
+            minimized_target_path = os.path.join(minimized_path, target_dirname)
+            if not os.path.exists(minimized_target_path):
+                os.mkdir(minimized_target_path)
+            
+            minimized_filename = 'generated_' + real_ligand_filename.replace('.sdf', 
+                                                                            f'_native_minimized.sdf')
+            minimized_filepath = os.path.join(minimized_target_path,
+                                                minimized_filename)
+            
+            if not os.path.exists(minimized_filepath):
+            
+                logging.info(f'Minimized native ligand in {minimized_filepath}')
+                mini_native_ligand = complex_minimizer.minimize_ligand(native_ligand)
+                with Chem.SDWriter(minimized_filepath) as writer:
+                    writer.write(mini_native_ligand)
+                
+            else:
+                
+                logging.info(f'Loading minimized native ligand from {minimized_filepath}')
+                mini_native_ligand = Chem.SDMolSupplier(minimized_filepath, removeHs=False)[0]
+            
+            sbgenbench3d = SBGenBench3D(vina_protein,
+                                        glide_protein,
+                                        pocket,
+                                        native_ligand=mini_native_ligand)
+            
+            sbgenbench3d.set_training_cel(training_cel)
             
             for model_name, ligand_filename_to_gen_mols in model_to_gen_mols.items():
             
-                logging.info(model_name)
+                results_filename = real_ligand_filename.replace('.sdf', 
+                                                                f'_results_{model_name}.p')
+                results_filepath = os.path.join(results_dirpath, results_filename)
             
-                gen_mols = ligand_filename_to_gen_mols[ligand_filename]
-                gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
-                results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols_h,
-                                                                n_total_mols=100)
+                if not os.path.exists(results_filepath):
+            
+                    d_model = {}
+                
+                    logging.info(model_name)
+                
+                    gen_mols = ligand_filename_to_gen_mols[ligand_filename]
+                    gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
                     
-                # import pdb;pdb.set_trace()
+                    logging.info('raw')
+                    results = sbgenbench3d.get_results_for_mol_list(mols=gen_mols_h,
+                                                                    n_total_mols=100,
+                                                                    do_conf_analysis=False)
                     
-                d_model = {}
-                d_model['raw'] = results
-                
-                # Minimize complexes
-                clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
-                minimized_target_path = os.path.join(minimized_path, target_dirname)
-                if not os.path.exists(minimized_target_path):
-                    os.mkdir(minimized_target_path)
-                minimized_filename = 'generated_' + real_ligand_filename.replace('.sdf', 
-                                                                            f'_{clean_model_name}_minimized.sdf')
-                minimized_filepath = os.path.join(minimized_target_path,
-                                                  minimized_filename)
-                
-                if not os.path.exists(minimized_filepath):
-                    mini_gen_mols = []
-                    for mol in gen_mols_h:
-                        mini_mol = complex_minimizer.minimize_ligand(mol)
-                        if mini_mol is not None:
-                            mini_gen_mols.append(mini_mol)
-                    logging.info(f'Saving minimized molecules in {minimized_filepath}')
-                    with Chem.SDWriter(minimized_filepath) as writer:
-                        for i, mol in enumerate(mini_gen_mols):
-                            writer.write(mol)
-                else:
-                    logging.info(f'Loading minimized molecules from {minimized_filepath}')
-                    mini_gen_mols = [mol for mol in Chem.SDMolSupplier(minimized_filepath)]
+                    d_model['raw'] = results
                     
-                
-                results = sbgenbench3D.get_results_for_mol_list(mols=mini_gen_mols,
-                                                                n_total_mols=100)
-                
-                # import pdb;pdb.set_trace()
-                
-                d_model['minimized'] = results
+                    logging.info('raw_valid')
+                    results = sbgenbench3d.get_results_for_mol_list(mols=gen_mols_h,
+                                                                    n_total_mols=100,
+                                                                    do_conf_analysis=True,
+                                                                    valid_only=True)
                     
-                d_target[model_name] = d_model
+                    d_model['raw_valid'] = results
+                    
+                    # Minimize complexes
+                    clean_model_name = model_name.replace(" ", "_").replace("(", "").replace(")", "")
+                    
+                    minimized_filename = 'generated_' + real_ligand_filename.replace('.sdf', 
+                                                                                f'_{clean_model_name}_minimized.sdf')
+                    minimized_filepath = os.path.join(minimized_target_path,
+                                                    minimized_filename)
+                    
+                    if not os.path.exists(minimized_filepath):
+                        mini_gen_mols = []
+                        for mol_i, mol in enumerate(gen_mols_h):
+                            logging.info(f'Minimizing molecule {mol_i}')
+                            mini_mol = complex_minimizer.minimize_ligand(mol)
+                            if mini_mol is not None:
+                                mini_gen_mols.append(mini_mol)
+                        logging.info(f'Saving minimized molecules in {minimized_filepath}')
+                        with Chem.SDWriter(minimized_filepath) as writer:
+                            for i, mol in enumerate(mini_gen_mols):
+                                writer.write(mol)
+                    else:
+                        logging.info(f'Loading minimized molecules from {minimized_filepath}')
+                        mini_gen_mols = [mol for mol in Chem.SDMolSupplier(minimized_filepath, 
+                                                                        removeHs=False)]
+                        
+                    logging.info('minimized')
+                    results = sbgenbench3d.get_results_for_mol_list(mols=mini_gen_mols,
+                                                                    n_total_mols=100,
+                                                                    do_conf_analysis=False)
+                    
+                    d_model['minimized'] = results
+                    
+                    logging.info('minimized_valid')
+                    results = sbgenbench3d.get_results_for_mol_list(mols=mini_gen_mols,
+                                                                    n_total_mols=100,
+                                                                    do_conf_analysis=True,
+                                                                    valid_only=True)
+                    
+                    d_model['minimized_valid'] = results
                 
-            d_results[ligand_filename] = d_target
+                    with open(results_filepath, 'wb') as f:
+                        pickle.dump(d_model, f)
+                
+                # d_target[model_name] = d_model
+                
+            # d_results[ligand_filename] = d_target
         
         except Exception as e:
-            logging.warning(f'Something went wrong: {e}')
-            # import pdb;pdb.set_trace()
+            logging.warning(f'Something went wrong for ligand {ligand_filename}: {e}')
         
 except KeyboardInterrupt:
     import pdb;pdb.set_trace()
     
-with open('structure_based_benchmark_results.p', 'wb') as f:
-    pickle.dump(d_results, f)
+# with open('structure_based_benchmark_results.p', 'wb') as f:
+#     pickle.dump(d_results, f)

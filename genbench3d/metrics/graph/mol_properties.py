@@ -4,6 +4,7 @@ import logging
 import numpy as np
 
 from typing import Dict
+from rdkit import Chem
 from rdkit.Chem import (Descriptors,
                         Crippen,
                         QED,
@@ -37,6 +38,10 @@ class MolProperty(Metric):
         all_values = []
         for name, ce in cel.items():
             mol = ce.mol
+            # SAScore is calculated on mol without Hs
+            # Does not change for other properties
+            mol = Chem.RemoveHs(mol) 
+            
             try:
                 value = self.calculator(mol)
                 all_values.append(value)

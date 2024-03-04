@@ -1,3 +1,6 @@
+import logging
+import numpy as np
+
 from genbench3d.conf_ensemble import GeneratedCEL
 from genbench3d.metrics import Metric
 from rdkit import Chem
@@ -20,8 +23,18 @@ class GoldPLPScore(Metric):
         
     def get(self, 
             cel: GeneratedCEL) -> float:
-        mols = cel.to_mol_list()
-        all_scores = self.gold_scorer.score_mols(mols)
+        try:
+            mols = cel.to_mol_list()
+            if len(mols) > 0:
+                all_scores = self.gold_scorer.score_mols(mols)
+            else:
+                all_scores = []
+        except Exception as e:
+            logging.warning(f'Gold Docking issue: {e}')
+            all_scores = [np.nan] * cel.n_total_confs
+        
+        # if len(all_scores) != cel.n_total_confs:
+        #     import pdb;pdb.set_trace()
         
         # all_scores = []
         # for name, ce in cel.items():

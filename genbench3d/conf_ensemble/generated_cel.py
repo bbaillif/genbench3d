@@ -13,8 +13,6 @@ class GeneratedCEL(ConfEnsembleLibrary):
                          root,
                          load)
         self.n_total_mols = None
-        self.n_total_confs = None
-        self.n_total_graphs = None
     
     
     @classmethod
@@ -37,17 +35,13 @@ class GeneratedCEL(ConfEnsembleLibrary):
             # in case all mols were not parsed or saved during generation
         else:
             cel.n_total_mols = len(mol_list)
-        cel.n_total_confs = sum([mol.GetNumConformers() for mol in cel.itermols()])
-        cel.n_total_graphs = len(cel)
         return cel
     
     
-    @classmethod
-    def get_cel_subset(cls,
-                       cel: 'ConfEnsembleLibrary',
-                       subset_conf_ids: Dict[str, List[int]]):
-        new_cel = super().get_cel_subset(cel,
-                                         subset_conf_ids)
-        new_cel.n_total_confs = sum([mol.GetNumConformers() for mol in cel.itermols()])
-        new_cel.n_total_graphs = len(cel)
-        return new_cel
+    # @classmethod
+    # def get_cel_subset(cls,
+    #                    cel: 'ConfEnsembleLibrary',
+    #                    subset_conf_ids: Dict[str, List[int]]):
+    #     new_cel = super().get_cel_subset(cel,
+    #                                      subset_conf_ids)
+    #     return new_cel

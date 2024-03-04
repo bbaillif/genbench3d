@@ -44,6 +44,7 @@ class Pocket():
         selection = '(' + ') and ('.join(selections) + ')'
         atom_group: mda.AtomGroup = complx.select_atoms(selection)
         # atom_group.write('test_pocket.pdb')
+        pocket_mol = None
         if len(atom_group) > 20:
             segids = {}
             for residue in atom_group.residues:

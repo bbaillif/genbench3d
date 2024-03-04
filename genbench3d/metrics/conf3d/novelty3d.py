@@ -1,3 +1,5 @@
+import logging
+
 from genbench3d.conf_ensemble import (GeneratedCEL,
                                       ConfEnsembleLibrary)
 from genbench3d.metrics import TrainingMetric
@@ -43,20 +45,24 @@ class Novelty3D(TrainingMetric):
                     is_novel = False
                     for conf2 in training_mol.GetConformers():
                         conf_id2 = conf2.GetId()
-                        tfd = GetTFDBetweenMolecules(mol1=mol, 
-                                                     mol2=training_mol, 
-                                                     confId1=conf_id1, 
-                                                     confId2=conf_id2)
-                        tfds.append(tfd)
-                        is_novel = tfd > self.tfd_threshold
-                        if is_novel: 
-                            self.novel_conf_ids[name].append(conf_id1)
-                            self.n_novel += 1
-                            break   
+                        try:
+                            tfd = GetTFDBetweenMolecules(mol1=mol, 
+                                                        mol2=training_mol, 
+                                                        confId1=conf_id1, 
+                                                        confId2=conf_id2)
+                            tfds.append(tfd)
+                            is_novel = tfd > self.tfd_threshold
+                            if is_novel: 
+                                self.novel_conf_ids[name].append(conf_id1)
+                                self.n_novel += 1
+                                break   
+                        except Exception as e:
+                            logging.warning(f'Novelty 3D exception: {e}')
+                            
         
         if self.n_novel == 0:
             self.value = 0
         else:
-            self.value = self.n_unique / cel.n_total_confs
+            self.value = self.n_novel / cel.n_total_confs
         
         return self.value

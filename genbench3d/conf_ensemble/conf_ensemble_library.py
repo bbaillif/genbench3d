@@ -66,6 +66,14 @@ class ConfEnsembleLibrary() :
                 self.load()
         return self._cel_df
     
+    @property
+    def n_total_confs(self):
+        return sum([mol.GetNumConformers() for mol in self.itermols()])
+    
+    @property
+    def n_total_graphs(self):
+        return len(self)
+    
     def __len__(self) -> int:
         return len(self._library)
     
@@ -102,6 +110,9 @@ class ConfEnsembleLibrary() :
         
     def keys(self) -> KeysView:
         return self._library.keys()
+    
+    def names(self) -> list[str]:
+        return list(self.keys())
     
     def values(self) -> ValuesView:
         return self._library.values()
@@ -146,7 +157,16 @@ class ConfEnsembleLibrary() :
         conf_ensemble_library = cls(cel_name, root, load=False)
         
         if names is None :
-            names = [Chem.MolToSmiles(mol) for mol in mol_list]
+            names = []
+            unknown_counter = 0
+            for mol in mol_list:
+                try :
+                    name = Chem.MolToSmiles(mol)
+                except:
+                    print('Unknown SMILES')
+                    name = f'Unknown_{unknown_counter}'
+                    unknown_counter += 1
+                names.append(name)
         else :
             assert len(mol_list) == len(names), \
                 'mol_list and names should have the same length'
@@ -423,6 +443,7 @@ class ConfEnsembleLibrary() :
     def compute_morgan_fps(self) -> List[ExplicitBitVect]:
         morgan_fps = []
         for mol in self.itermols():
+            mol = Chem.RemoveHs(mol) 
             morgan_fp = GetMorganFingerprintAsBitVect(mol=mol, 
                                                       radius=3, 
                                                       useChirality=True)

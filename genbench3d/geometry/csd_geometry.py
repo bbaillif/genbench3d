@@ -14,8 +14,9 @@ class CSDGeometry(ReferenceGeometry):
     
     def __init__(self, 
                  root: str = DATA_DIRPATH, 
-                 source_name: str ='CSD') -> None:
-        super().__init__(root, source_name)
+                 source_name: str ='CSD',
+                 validity_method: str = 'mixtures') -> None:
+        super().__init__(root, source_name, validity_method)
         
         
     def get_mol_iterator(self):

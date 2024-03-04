@@ -11,4 +11,6 @@ class Validity2D(Metric):
     def get(self, 
             cel: GeneratedCEL) -> float:
         self.value = cel.n_total_confs / cel.n_total_mols
+        if self.value > 1:
+            import pdb;pdb.set_trace()
         return self.value

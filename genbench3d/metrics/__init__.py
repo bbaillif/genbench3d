@@ -14,7 +14,9 @@ from .conf3d import (Validity3D,
                      StrainEnergy)
 from .activity import (VinaScorer,
                        VinaScore,
+                       GlideScore,
                        GoldPLPScore,
                        IFPSimilarity,
-                       ESPSIM,
-                       StericClash)
+                       ESPSIM)
+from .pocket import (StericClash,
+                     DistanceToNativeCentroid)

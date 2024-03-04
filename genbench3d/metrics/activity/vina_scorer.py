@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 from typing import List, Union
 from rdkit import Chem
@@ -10,7 +11,7 @@ from meeko import (MoleculePreparation,
 #                     VINA_DIRPATH)
 from vina import Vina
 from MDAnalysis import AtomGroup
-from genbench3d.data.structure.protein import VinaProtein
+from genbench3d.data.structure import VinaProtein
 
 DEFAULT_SF_NAME = 'vina'
 DEFAULT_PREPARATION_METHOD = 'adfr'
@@ -149,30 +150,69 @@ class VinaScorer():
                   add_hydrogens: bool = True,
                   ) -> List[float]:
             
+        energies = self.score_mols(ligands=[ligand],
+                                   minimized=minimized,
+                                   output_filepath=output_filepath,
+                                   add_hydrogens=add_hydrogens)
+        return energies
+    
+    
+    # Doesn't work for len(ligands) > 1 for some reason...
+    def score_mols(self,
+                   ligands: List[Mol],
+                   minimized: bool = False,
+                   output_filepath: str = None,
+                   add_hydrogens: bool = True,) -> List[float]:
+        
         assert self._vina._center is not None, \
             'You need to setup the pocket box using the set_box_from_ligand function'
             
         # Ligand preparation
         if add_hydrogens:
-            ligand = Chem.AddHs(ligand, addCoords=True)
+            ligands = [Chem.AddHs(ligand, addCoords=True) for ligand in ligands]
         
-        preparator = MoleculePreparation()
-        mol_setups = preparator.prepare(ligand)
-        mol_setup = mol_setups[0]
-        pdbqt_string, is_ok, error_msg = PDBQTWriterLegacy.write_string(setup=mol_setup, 
-                                                                        bad_charge_ok=True)
-        if is_ok:
-            self._vina.set_ligand_from_string(pdbqt_string)
+        pdbqt_strings = []
+        ligand_names = []
+        for i, ligand in enumerate(ligands) :
+            ligand_name = f'Ligand_{i}'
+            preparator = MoleculePreparation()
+            mol_setups = preparator.prepare(ligand)
+            mol_setup = mol_setups[0]
+            pdbqt_string, is_ok, error_msg = PDBQTWriterLegacy.write_string(setup=mol_setup, 
+                                                                            bad_charge_ok=True)
+            if is_ok:
+                pdbqt_strings.append(pdbqt_string)
+                ligand_names.append(ligand_name)
             
+        # import pdb;pdb.set_trace()
+            
+        
+        if len(pdbqt_strings) > 0:   
+            self._vina.set_ligand_from_string(pdbqt_strings)
+            scores = []
             if minimized:
                 energies = self._vina.optimize()
             else:
                 energies = self._vina.score()
+                
             if output_filepath is not None:
                 self._vina.write_pose(output_filepath, overwrite=True)
+                
+            if len(pdbqt_strings) > 1:
+                current_pos = 0
+                for i in range(len(ligands)):
+                    ligand_name = f'Ligand_{i}'
+                    if ligand_name in ligand_names:
+                        scores.append(energies[current_pos][0])
+                        current_pos += 1
+                    else:
+                        scores.append(np.nan)
+                scores = [energy[0] for energy in energies]
+            else:
+                scores = energies[:1]
         else:
-            energies = None
-        return energies
+            scores = [np.nan] * len(ligands)
+        return scores
         
         
     def score_pdbqt(self,

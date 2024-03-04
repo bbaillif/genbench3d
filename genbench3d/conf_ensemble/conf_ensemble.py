@@ -41,7 +41,7 @@ class ConfEnsemble() :
         self.name = name
         
         if template_mol is None:
-            template_mol = mol_list[0]
+            template_mol = Mol(mol_list[0])
             mol_list = mol_list[1:]
             
         if name is None:
@@ -262,5 +262,4 @@ class ConfEnsemble() :
         #     mols.append(new_mol)
         mols = [Mol(mol=self._mol, confId=conf.GetId()) 
                 for conf in self._mol.GetConformers()]
-        # import pdb;pdb.set_trace()
         return mols

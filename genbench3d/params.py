@@ -105,7 +105,7 @@ PDBBIND_CORE_DIRNAME = 'core'
 PDBBIND_CORE_DIRPATH = os.path.join(PDBBIND_DIRPATH,
                                        PDBBIND_CORE_DIRNAME)
 
-EDIA_BIN_DIRPATH = '/home/bb596/threeDGenMolBenchmark/ediascorer_1.1.0_ubuntu-16.04-64bit/ediascorer_1.1.0/'
+EDIA_BIN_DIRPATH = '/home/bb596/genbench3d/ediascorer_1.1.0_ubuntu-16.04-64bit/ediascorer_1.1.0/'
 EDIA_BIN_FILENAME = 'ediascorer'
 EDIA_BIN_FILEPATH = os.path.join(EDIA_BIN_DIRPATH, EDIA_BIN_FILENAME)
 EDIA_LICENSE_FILENAME = 'license20230804-593-34k9un.txt'
@@ -124,3 +124,6 @@ LIGBOUNDCONF_MINIMIZED_FILENAME = 'LigBoundConf/minimized/S2_LigBoundConf_minimi
 LIGBOUNDCONF_MINIMIZED_FILEPATH = os.path.join(ROOT_DIRPATH, LIGBOUNDCONF_MINIMIZED_FILENAME)
 
 DEFAULT_TFD_THRESHOLD = 0.2
+
+SCHRODINGER_PATH = '/usr/local/shared/schrodinger/current/'
+GLIDE_OUTPUT_DIRPATH = '/home/bb596/genbench3d/glide_working_dir/'

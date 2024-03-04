@@ -28,7 +28,7 @@ def get_full_matrix_from_tril(tril_matrix: Iterable[Any],
     return matrix
 
 def rdkit_conf_to_ccdc_mol(rdkit_mol: Mol, 
-                            conf_id: int = 0) -> Molecule:
+                            conf_id: int = -1) -> Molecule:
     """Create a ccdc molecule for a given conformation from a rdkit molecule
     Communication via mol block
     
