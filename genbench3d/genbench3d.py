@@ -8,7 +8,7 @@ from rdkit.Chem import Mol
 from .conf_ensemble import GeneratedCEL, ConfEnsembleLibrary
 from .data.generated_sample_reader import ASEDBReader
 from tqdm import tqdm
-from genbench3d.geometry import CrossDockedGeometry
+from genbench3d.geometry import CrossDockedGeometry, CSDDrugGeometry
 
 from .metrics import (Metric,
                       TrainingMetric,
@@ -74,12 +74,17 @@ class GenBench3D():
         self.training_graph_metrics: List[TrainingMetric] = [Novelty2D(),
                                                             MaxTrainSim()]
         
-        self.validity3D_csd = Validity3D(name='Validity3D CSD')
+        self.csd_geometry = CSDDrugGeometry()
+        self.validity3D_csd = Validity3D(name='Validity3D CSD',
+                                         reference_geometry=self.csd_geometry)
+        # self.cross_docked_geometry = CrossDockedGeometry()
         # self.validity3D_crossdocked = Validity3D(name='Validity3D CrossDocked',
-        #                                          reference_geometry=CrossDockedGeometry())
+        #                                          reference_geometry=self.cross_docked_geometry)
+        
         self.conf_metrics: List[Metric] = [self.validity3D_csd,
                                         #    self.validity3D_crossdocked,
-                                           StrainEnergy()]
+                                        #    StrainEnergy()
+                                           ]
         self.valid_conf_metrics: List[Metric] = [Uniqueness3D(self.tfd_threshold),
                                                  Diversity3D()]
         self.training_valid_conf_metrics: List[TrainingMetric] = [Novelty3D(self.tfd_threshold)]
@@ -111,7 +116,7 @@ class GenBench3D():
             self.results[metric_name] = metric.get(cel)
             
         self.results['Number of valid 3D confs (CSD)'] = self.validity3D_csd.n_valid_confs
-        self.results['Number of valid 3D confs (CrossDocked)'] = self.validity3D_csd.n_valid_confs
+        # self.results['Number of valid 3D confs (CrossDocked)'] = self.validity3D_crossdocked.n_valid_confs
         self.results['Number of tested confs'] = cel.n_total_confs
             
         logging.info('Compute valid CEL for further analysis')

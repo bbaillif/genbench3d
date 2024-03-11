@@ -2,12 +2,16 @@ import pickle
 import os
 import gzip
 import logging
+import pandas as pd
 
 from rdkit import Chem
 from genbench3d import GenBench3D
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
+
+from warnings import simplefilter
+simplefilter(action='ignore', category=DeprecationWarning)
 
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)s',
                     datefmt='%d/%m/%Y %I:%M:%S %p',
@@ -195,12 +199,14 @@ for i, ligand_filename in i_to_ligand_filename.items():
     gen_mols_filepath = os.path.join(ligan_prior_path, f'Generated_{i}_lig_gen_fit_add.sdf.gz')
     gz_stream = gzip.open(gen_mols_filepath)
     with Chem.ForwardSDMolSupplier(gz_stream) as gzsuppl:
-        mols = [mol 
-                for mol in gzsuppl
-                if (mol is not None) 
-                    and (mol.GetNumAtoms() > 0)
-                    and (not '.' in Chem.MolToSmiles(mol))]
-        gen_mols = mols
+        gen_mols = []
+        for mol in gzsuppl:
+            try:
+                if (mol is not None) and (mol.GetNumAtoms() > 0) and (not '.' in Chem.MolToSmiles(mol)):
+                    gen_mols.append(mol)
+            except Exception as e:
+                logging.warning(str(e))
+
         
     ligan_prior_gen_mols.extend(gen_mols)
     
@@ -240,19 +246,40 @@ for mol in train_ligands:
     if mol is not None:
         training_mols.append(Chem.AddHs(mol, addCoords=True))
 
-# model_name = 'CrossDocked (training)'
-# genbench3D = GenBench3D()
-# results = genbench3D.get_results_for_mol_list(mols=training_mols)
-# d_results[model_name] = results
+model_name = 'CrossDocked (training)'
+genbench3D = GenBench3D()
+results = genbench3D.get_results_for_mol_list(mols=training_mols[:1000])
+d_results[model_name] = results
+
+dfs = []
+for name, rows in genbench3D.validity3D_csd.validities.items():
+    df = pd.DataFrame(rows)
+    df['name'] = name
+    dfs.append(df)
+csd_df = pd.concat(dfs)
+
+# dfs = []
+# for name, rows in genbench3D.validity3D_crossdocked.validities.items():
+#     df = pd.DataFrame(rows)
+#     df['name'] = name
+#     dfs.append(df)
+# cd_df = pd.concat(dfs)
+
+print(results['Validity3D CSD'])
+# print(results['Validity3D CrossDocked'])
+import pdb;pdb.set_trace()
+
+# print(csd_df.sort_values('q-value'))
+# print(cd_df.sort_values('q-value'))
 
 for model_name, gen_mols in model_to_gen_mols.items():
     logging.info(model_name)
     genbench3D = GenBench3D(training_mols=training_mols)
-    # genbench3D.n_total_mols = 10000
     gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
-    results = genbench3D.get_results_for_mol_list(gen_mols_h, n_total_mols=10000)
+    results = genbench3D.get_results_for_mol_list(gen_mols_h)
+                                                  #, n_total_mols=10000)
     d_results[model_name] = results
-    # import pdb;pdb.set_trace()
+    import pdb;pdb.set_trace()
     
 with open('benchmark_results.p', 'wb') as f:
     pickle.dump(d_results, f)

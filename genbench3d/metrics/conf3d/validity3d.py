@@ -6,7 +6,8 @@ from typing import Tuple, List, Dict, Any
 from genbench3d.geometry import (GeometryExtractor, 
                                  ReferenceGeometry, 
                                  LigBoundConfGeometry,
-                                 CSDGeometry)
+                                 CSDGeometry,
+                                 CSDDrugGeometry)
 from rdkit import Chem
 from rdkit.Chem import Mol
 from ..metric import Metric
@@ -15,25 +16,36 @@ from genbench3d.utils import rdkit_conf_to_ccdc_mol
 from ccdc.conformer import GeometryAnalyser
 from ccdc.io import Molecule
 from scipy.stats.mstats import gmean
+from genbench3d.geometry import ClashChecker
 
 class Validity3D(Metric):
     
     def __init__(self,
                  name: str = 'Validity3D',
-                 reference_geometry: ReferenceGeometry = CSDGeometry(),
+                 reference_geometry: ReferenceGeometry = None,
                  backend: str = 'reference',
                  q_value_threshold: float = 0.001,
+                 clash_safety_ratio: float = 0.75,
                  include_torsions: float = False,
+                 consider_hs: float = False,
                  ) -> None:
         super().__init__(name)
         self.geometry_extractor = GeometryExtractor()
-        self.reference_geometry = reference_geometry
+        if reference_geometry is None:
+            self.reference_geometry = CSDDrugGeometry()
+        else:
+            self.reference_geometry = reference_geometry
+        
         assert backend in ['reference', 'CSD']
         self.backend = backend
         if backend == 'CSD':
             self.geometry_analyser = GeometryAnalyser()
         self.q_value_threshold = q_value_threshold
         self.include_torsions = include_torsions
+        self.consider_hs = consider_hs
+        
+        self.clash_checker = ClashChecker(clash_safety_ratio,
+                                          consider_hs=self.consider_hs)
         
         self.valid_conf_ids = {}
         self.new_patterns = {}
@@ -47,8 +59,8 @@ class Validity3D(Metric):
             cel: GeneratedCEL) -> float:
         
         self.n_valid_confs = 0
-        # for name, ce in tqdm(cel.items()):
-        for name, ce in cel.items():
+        for name, ce in tqdm(cel.items()):
+        # for name, ce in cel.items():
             mol = ce.mol
             valid_conf_ids = self.get_valid_conf_ids_for_mol(mol, 
                                                             name)
@@ -137,6 +149,7 @@ class Validity3D(Metric):
         else:
             print('Invalid backend')
         
+        # clashes = []
         valid_nonbonddistance_conf_ids, clashes = self.analyze_clashes(mol)
         valid_conf_ids = valid_conf_ids.intersection(valid_nonbonddistance_conf_ids)
         
@@ -156,20 +169,20 @@ class Validity3D(Metric):
                                  List[Dict[str, Any]], 
                                  List[str]]:
         bonds = self.geometry_extractor.get_bonds(mol, 
-                                                  consider_hydrogens=False)
+                                                  consider_hydrogens=self.consider_hs)
         
         valid_bond_conf_ids = []
         bond_validities = []
-        new_bond_patterns = set()
+        new_bond_patterns = []
         for conf in mol.GetConformers():
             conf_is_valid = True
             conf_id = conf.GetId()
         
             for bond in bonds:
-                bond_tuple = self.geometry_extractor.get_bond_tuple(bond)
+                bond_pattern = self.geometry_extractor.get_bond_pattern(bond)
                 bond_value = self.geometry_extractor.get_bond_length(conf, bond)
                 
-                q_value, new_pattern = self.reference_geometry.geometry_is_valid(geometry_tuple=bond_tuple,
+                q_value, new_pattern = self.reference_geometry.geometry_is_valid(geometry_pattern=bond_pattern,
                                                                                 value=bond_value,
                                                                                 geometry='bond')
                 
@@ -181,7 +194,7 @@ class Validity3D(Metric):
                 
                 validity_d = {'conf_id': conf_id,
                             'geometry_type': 'bond',
-                            'tuple': bond_tuple,
+                            'pattern': bond_pattern.to_string(),
                             'value': bond_value,
                             'q-value': q_value,
                             }
@@ -193,7 +206,7 @@ class Validity3D(Metric):
                     conf_is_valid = False
                     
                 if new_pattern:
-                    new_bond_patterns.update(bond_tuple)
+                    new_bond_patterns.append(bond_pattern.to_string())
             
             if conf_is_valid:
                 valid_bond_conf_ids.append(conf_id)
@@ -208,7 +221,7 @@ class Validity3D(Metric):
                                  List[str]]:
         
         angles_atom_ids = self.geometry_extractor.get_angles_atom_ids(mol,
-                                                                      consider_hydrogens=False)
+                                                                      consider_hydrogens=self.consider_hs)
         
         valid_angle_conf_ids = []
         angle_validities = []
@@ -218,7 +231,7 @@ class Validity3D(Metric):
             conf_id = conf.GetId()
         
             for begin_atom_idx, second_atom_idx, end_atom_idx in angles_atom_ids:
-                angle_tuple = self.geometry_extractor.get_angle_tuple(mol, 
+                angle_pattern = self.geometry_extractor.get_angle_pattern(mol, 
                                                                         begin_atom_idx, 
                                                                         second_atom_idx, 
                                                                         end_atom_idx)
@@ -227,7 +240,7 @@ class Validity3D(Metric):
                                                                         second_atom_idx, 
                                                                         end_atom_idx)
                 
-                q_value, new_pattern = self.reference_geometry.geometry_is_valid(geometry_tuple=angle_tuple,
+                q_value, new_pattern = self.reference_geometry.geometry_is_valid(geometry_pattern=angle_pattern,
                                                                                 value=angle_value,
                                                                                 geometry='angle')
                 
@@ -240,7 +253,7 @@ class Validity3D(Metric):
                 validity_d = {
                         'conf_id': conf_id,
                         'geometry_type': 'angle',
-                        'tuple': angle_tuple,
+                        'pattern': angle_pattern.to_string(),
                         'value': angle_value,
                         'q-value': q_value,
                     }
@@ -251,7 +264,7 @@ class Validity3D(Metric):
                     conf_is_valid = False
                     
                 if new_pattern:
-                    new_angle_patterns.append(angle_tuple)
+                    new_angle_patterns.append(angle_pattern.to_string())
             
             if conf_is_valid:
                 valid_angle_conf_ids.append(conf_id)
@@ -266,7 +279,7 @@ class Validity3D(Metric):
                                  List[str]]:
         
         torsions_atom_ids = self.geometry_extractor.get_torsions_atom_ids(mol,
-                                                                          consider_hydrogens=False)
+                                                                          consider_hydrogens=self.consider_hs)
         
         valid_torsion_conf_ids = []
         torsion_validities = []
@@ -276,7 +289,7 @@ class Validity3D(Metric):
             conf_id = conf.GetId()
         
             for begin_atom_idx, second_atom_idx, third_atom_idx, end_atom_idx in torsions_atom_ids:
-                torsion_tuple = self.geometry_extractor.get_torsion_tuple(mol, 
+                torsion_pattern = self.geometry_extractor.get_torsion_pattern(mol, 
                                                                         begin_atom_idx, 
                                                                         second_atom_idx, 
                                                                         third_atom_idx,
@@ -287,7 +300,7 @@ class Validity3D(Metric):
                                                                         third_atom_idx,
                                                                         end_atom_idx)
                 
-                q_value, new_pattern = self.reference_geometry.geometry_is_valid(geometry_tuple=torsion_tuple,
+                q_value, new_pattern = self.reference_geometry.geometry_is_valid(geometry_pattern=torsion_pattern,
                                                                                 value=torsion_value,
                                                                                 geometry='torsion')
                 
@@ -300,7 +313,7 @@ class Validity3D(Metric):
                 validity_d = {
                         'conf_id': conf_id,
                         'geometry_type': 'torsion',
-                        'tuple': torsion_tuple,
+                        'pattern': torsion_pattern.to_string(),
                         'value': torsion_value,
                         'q-value': q_value
                     }
@@ -310,7 +323,7 @@ class Validity3D(Metric):
                     conf_is_valid = False
                     
                 if new_pattern:
-                    new_torsion_patterns.append(torsion_tuple)
+                    new_torsion_patterns.append(torsion_pattern.to_string())
             
             if conf_is_valid:
                 valid_torsion_conf_ids.append(conf_id)
@@ -322,85 +335,98 @@ class Validity3D(Metric):
                         mol: Mol) -> Tuple[List[int], 
                                             Dict[str, Any]]:
         
+        conf_clashes = {}
         try:
         
             clashes = []
             valid_interbonddist_conf_ids = []
             
-            bonds = self.geometry_extractor.get_bonds(mol)
+            bonds = self.geometry_extractor.get_bonds(mol,
+                                                      consider_hydrogens=self.consider_hs)
             bond_idxs = [(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
                         for bond in bonds]
             bond_idxs = [t 
                         if t[0] < t[1] 
                         else (t[1], t[0])
                         for t in bond_idxs ]
-            angle_idxs = self.geometry_extractor.get_angles_atom_ids(mol)
+            angle_idxs = self.geometry_extractor.get_angles_atom_ids(mol,
+                                                                     consider_hydrogens=self.consider_hs)
             two_hop_idxs = [(t[0], t[2])
-                                      if t[0] < t[2]
-                                      else (t[2], t[0])
-                                      for t in angle_idxs]
-            torsion_idxs = self.geometry_extractor.get_torsions_atom_ids(mol)
+                            if t[0] < t[2]
+                            else (t[2], t[0])
+                            for t in angle_idxs]
+            torsion_idxs = self.geometry_extractor.get_torsions_atom_ids(mol,
+                                                                         consider_hydrogens=self.consider_hs)
             three_hop_idxs = [(t[0], t[3])
                                 if t[0] < t[3]
                                 else (t[3], t[0])
                                 for t in torsion_idxs]
-            atoms = [atom for atom in mol.GetAtoms()]
+            # atoms = [atom for atom in mol.GetAtoms()]
             
             # import pdb;pdb.set_trace()
+            excluded_pairs = bond_idxs + two_hop_idxs + three_hop_idxs
             
             for conf in mol.GetConformers():
                 conf_id = conf.GetId()
-                distance_matrix = Chem.Get3DDistanceMatrix(mol=mol, confId=conf_id)
-                is_clashing = False
-            
-                for i, atom1 in enumerate(atoms):
-                    idx1 = atom1.GetIdx()
-                    if i != idx1:
-                        print('Check atom indices')
-                        import pdb;pdb.set_trace()
-                    symbol1 = atom1.GetSymbol()
-                    for j, atom2 in enumerate(atoms[i+1:]):
-                        idx2 = atom2.GetIdx()
-                        if i+1+j != idx2:
-                            print('Check atom indices')
-                            import pdb;pdb.set_trace()
-                        symbol2 = atom2.GetSymbol()
-                        not_bond = (idx1, idx2) not in bond_idxs
-                        not_angle = (idx1, idx2) not in two_hop_idxs
-                        not_torsion = (idx1, idx2) not in three_hop_idxs
-                        if not_bond and not_angle and not_torsion:
-                            vdw1 = self.geometry_extractor.get_vdw_radius(symbol1)
-                            vdw2 = self.geometry_extractor.get_vdw_radius(symbol2)
-                            
-                            if symbol1 == 'H':
-                                min_distance = vdw2
-                            elif symbol2 == 'H':
-                                min_distance = vdw1
-                            else:
-                                # min_distance = vdw1 + vdw2 - self.clash_tolerance
-                                min_distance = (vdw1 + vdw2) * 0.75
-                                
-                            distance = distance_matrix[idx1, idx2]
-                            if distance < min_distance:
-                                is_clashing = True
-                                invalid_d = {
-                                'conf_id': conf_id,
-                                'atom_idx1': idx1,
-                                'atom_idx2': idx2,
-                                'atom_symbol1': symbol1,
-                                'atom_symbol2': symbol2,
-                                'distance': distance,
-                                }
-                                clashes.append(invalid_d)
-                
-                if not is_clashing:
+                if not self.consider_hs:
+                    mol_noh = Chem.RemoveHs(mol) # Saves time by not computing H interatomic distances
+                clashes = self.clash_checker.get_clashes(mol_noh, conf_id, excluded_pairs)
+                if len(clashes) > 0:
+                    conf_clashes[conf_id] = clashes
+                else:
                     valid_interbonddist_conf_ids.append(conf_id)
+                # conf_id = conf.GetId()
+                # distance_matrix = Chem.Get3DDistanceMatrix(mol=mol, confId=conf_id)
+                # is_clashing = False
+            
+                # for i, atom1 in enumerate(atoms):
+                #     idx1 = atom1.GetIdx()
+                #     if i != idx1:
+                #         print('Check atom indices')
+                #         import pdb;pdb.set_trace()
+                #     symbol1 = atom1.GetSymbol()
+                #     for j, atom2 in enumerate(atoms[i+1:]):
+                #         idx2 = atom2.GetIdx()
+                #         if i+1+j != idx2:
+                #             print('Check atom indices')
+                #             import pdb;pdb.set_trace()
+                #         symbol2 = atom2.GetSymbol()
+                #         not_bond = (idx1, idx2) not in bond_idxs
+                #         not_angle = (idx1, idx2) not in two_hop_idxs
+                #         not_torsion = (idx1, idx2) not in three_hop_idxs
+                #         if not_bond and not_angle and not_torsion:
+                #             vdw1 = self.geometry_extractor.get_vdw_radius(symbol1)
+                #             vdw2 = self.geometry_extractor.get_vdw_radius(symbol2)
+                            
+                #             if symbol1 == 'H':
+                #                 min_distance = vdw2
+                #             elif symbol2 == 'H':
+                #                 min_distance = vdw1
+                #             else:
+                #                 # min_distance = vdw1 + vdw2 - self.clash_tolerance
+                #                 min_distance = (vdw1 + vdw2) * 0.75
+                                
+                #             distance = distance_matrix[idx1, idx2]
+                #             if distance < min_distance:
+                #                 is_clashing = True
+                #                 invalid_d = {
+                #                 'conf_id': conf_id,
+                #                 'atom_idx1': idx1,
+                #                 'atom_idx2': idx2,
+                #                 'atom_symbol1': symbol1,
+                #                 'atom_symbol2': symbol2,
+                #                 'distance': distance,
+                #                 }
+                #                 clashes.append(invalid_d)
+                
+                # if not is_clashing:
+                #     valid_interbonddist_conf_ids.append(conf_id)
                     
         except Exception as e:
             print(e)
             import pdb;pdb.set_trace()
                 
-        return valid_interbonddist_conf_ids, clashes
+        return valid_interbonddist_conf_ids, conf_clashes
             
     
     def get_invalid_bonds_angles(self):

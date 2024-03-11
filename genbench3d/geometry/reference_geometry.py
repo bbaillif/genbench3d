@@ -9,7 +9,7 @@ from typing import (List,
                     Dict, 
                     Any, 
                     Union,
-                    Tuple)
+                    NamedTuple)
 from tqdm import tqdm
 from collections import defaultdict
 from genbench3d.params import DATA_DIRPATH
@@ -17,14 +17,19 @@ from rdkit.Chem import Mol
 from ccdc.io import Molecule
 from genbench3d.utils import ccdc_mol_to_rdkit_mol
 from .geometry_extractor import GeometryExtractor
+from .pattern import BondPattern, AnglePattern, TorsionPattern, GeometryPattern
 from sklearn.mixture import GaussianMixture
 from .von_mises_mixture import VonMisesMixture
 from scipy.stats import (vonmises, 
                          norm)
 from sklearn.model_selection import GridSearchCV
+from dataclasses import dataclass
 
-Mixture = Union[GaussianMixture, VonMisesMixture]
-MixturesDict = Dict[str, Dict[str, Union[float, Mixture]]]
+@dataclass
+class GeometryMixture:
+    mixture: Union[GaussianMixture, VonMisesMixture]
+    max_likelihood: float
+    shift: float = 0
 
 
 class ReferenceGeometry(ABC):
@@ -120,21 +125,21 @@ class ReferenceGeometry(ABC):
                 assert isinstance(mol, Mol)
                 
                 mol_bond_values = self.get_mol_bond_lengths(mol)
-                for bond_tuple, bond_values in mol_bond_values.items():
-                    all_bond_values[bond_tuple].extend(bond_values)
-                    # if bond_tuple == (((('H', 'S', 0), '-'), (('H', 'S', 0), '-'), (('H', 'S', 0), '-')), ('C', 'SP3', 0), '-', ('N', 'SP2', 0), ((('C', 'SP2', 0), '~'), (('C', 'SP2', 0), '~'))):
+                for bond_pattern, bond_values in mol_bond_values.items():
+                    all_bond_values[bond_pattern].extend(bond_values)
+                    # if bond_pattern == (((('H', 'S', 0), '-'), (('H', 'S', 0), '-'), (('H', 'S', 0), '-')), ('C', 'SP3', 0), '-', ('N', 'SP2', 0), ((('C', 'SP2', 0), '~'), (('C', 'SP2', 0), '~'))):
                     #     for value in bond_values:
                     #         if value < 1.40:
                     #             import pdb;pdb.set_trace()
                 
                 mol_angle_values = self.get_mol_angle_values(mol)
-                for angle_tuple, angle_values in mol_angle_values.items():
-                    all_angle_values[angle_tuple].extend(angle_values)
+                for angle_pattern, angle_values in mol_angle_values.items():
+                    all_angle_values[angle_pattern].extend(angle_values)
                     
                 mol_torsion_values = self.get_mol_torsion_values(mol)
-                for torsion_tuple, torsion_values in mol_torsion_values.items():
-                    all_torsion_values[torsion_tuple].extend(torsion_values)
-                    # if torsion_tuple == (('C', 'SP2', 0), '~', (('C', '~'),), ('C', 'SP2', 0), '~', ('C', 'SP2', 0), (('C', '~'),), '~', ('C', 'SP2', 0)):
+                for torsion_pattern, torsion_values in mol_torsion_values.items():
+                    all_torsion_values[torsion_pattern].extend(torsion_values)
+                    # if torsion_pattern == (('C', 'SP2', 0), '~', (('C', '~'),), ('C', 'SP2', 0), '~', ('C', 'SP2', 0), (('C', '~'),), '~', ('C', 'SP2', 0)):
                     #     for value in torsion_values:
                     #         if value < 150 and value > 125:
                     #             import pdb;pdb.set_trace()
@@ -168,98 +173,105 @@ class ReferenceGeometry(ABC):
             
             
     def compute_mixtures(self,
-                         n_components: int = 10,
-                         n_samples: int = 3600,
-                        #  n_min_values: int = 20,
-                         ) -> Dict[str, MixturesDict]:
+                         ) -> dict[str, dict[GeometryPattern, GeometryMixture]]:
         
         logging.info(f'Computing geometry mixtures for {self.source_name}')
         
         values = self.read_values()
         
-        bond_values = values['bond']
-        angle_values = values['angle']
-        torsion_values = values['torsion']
+        bond_values: dict[BondPattern, list[float]] = values['bond']
+        angle_values: dict[AnglePattern, list[float]] = values['angle']
+        torsion_values: dict[TorsionPattern, list[float]] = values['torsion']
         
+        # Bonds
         logging.info(f'Computing bond mixtures for {self.source_name}')
-        bond_mixtures = {}
+        bond_mixtures: dict[BondPattern, GeometryMixture] = {}
         for pattern, values in tqdm(bond_values.items()):
             if len(values) > 50:
                 mixture = self.get_mixture(values)
-                max_likelihood = self.get_max_likelihood(mixture, values)
-                bond_mixtures[pattern] = {'mixture': mixture,
-                                        'max_likelihood': max_likelihood}
+                max_likelihood = self.get_max_likelihood(mixture, values, geometry='bond')
+                geometry_mixture = GeometryMixture(mixture, max_likelihood)
+                bond_mixtures[pattern] = geometry_mixture
+                
+        logging.info(f'Computing mixtures for generalized bond patterns for {self.source_name}')
+        generalized_bond_values = defaultdict(list)
+        for pattern, values in bond_values.items():
+            generalized_pattern = pattern.generalize()
+            generalized_bond_values[generalized_pattern].extend(values)
             
+        for pattern, values in tqdm(generalized_bond_values.items()):
+            if len(values) > 50:
+                mixture = self.get_mixture(values)
+                max_likelihood = self.get_max_likelihood(mixture, values, geometry='bond')
+                geometry_mixture = GeometryMixture(mixture, max_likelihood)
+                bond_mixtures[pattern] = geometry_mixture
+                
+        # Angles
         logging.info(f'Computing angle mixtures for {self.source_name}')
-        angle_mixtures = {}
+        angle_mixtures: dict[AnglePattern, GeometryMixture] = {}
         for pattern, values in tqdm(angle_values.items()):
             if len(values) > 50:
                 mixture = self.get_mixture(values)
-                max_likelihood = self.get_max_likelihood(mixture, values)
-                angle_mixtures[pattern] = {'mixture': mixture,
-                                        'max_likelihood': max_likelihood}
+                max_likelihood = self.get_max_likelihood(mixture, values, geometry='angle')
+                geometry_mixture = GeometryMixture(mixture, max_likelihood)
+                angle_mixtures[pattern] = geometry_mixture
+                
+        # Generalized angle pattern by removing only outer neighborhoods (default)
+        # or both outer and inner neighborhoods
+        logging.info(f'Computing generalized angle mixtures for {self.source_name}')
+        inner_generalizations = [False, True]
+        for generalize_inner in inner_generalizations:
+            generalized_angle_values = defaultdict(list)
+            for pattern, values in angle_values.items():
+                generalized_pattern = pattern.generalize(inner_neighbors=generalize_inner)
+                generalized_angle_values[generalized_pattern].extend(values)
+                
+            for pattern, values in tqdm(generalized_angle_values.items()):
+                if len(values) > 50:
+                    mixture = self.get_mixture(values)
+                    max_likelihood = self.get_max_likelihood(mixture, values, geometry='angle')
+                    geometry_mixture = GeometryMixture(mixture, max_likelihood)
+                    angle_mixtures[pattern] = geometry_mixture
+                
+        # Torsions
+        def get_torsion_mixture(values):
+            abs_values = np.abs(values)
+            samples = np.linspace(0, 180, 181).reshape(-1, 1)
+            distances = np.abs(samples - abs_values)
+            min_distances = np.min(distances, axis=1)
+            
+            # the shift is the point further away from all values
+            # = the "minimum" on the torsion space
+            max_i = np.argmax(min_distances) 
+            shifted_values = self.shift_torsion_values(values=values,
+                                                        x=max_i)
+            mixture = self.get_mixture(shifted_values)
+            max_likelihood = self.get_max_likelihood(mixture, shifted_values, geometry='torsion')
+            torsion_mixture = GeometryMixture(mixture, max_likelihood, max_i)
+            return torsion_mixture
             
         logging.info(f'Computing torsion mixtures for {self.source_name}')
         torsion_mixtures = {}
         for pattern, values in tqdm(torsion_values.items()):
             if len(values) > 50:
-                logging.info(pattern)
-                if self.torsion_mixture == 'VonMises':
-                    mixture = VonMisesMixture(n_components=n_components)
-                    values = np.deg2rad(values) # VonMises in [-pi, pi]
-                    values = np.array(values).reshape(-1, 1)
-                    mixture.fit(values)
-                    samples= np.linspace(start=values.min(), 
-                                        stop=values.max(), 
-                                        num=n_samples)
-                    samples = samples.reshape(-1, 1)
-                    log_likelihoods = mixture.score_samples(samples)
-                    likelihoods = np.exp(log_likelihoods)
-                    max_likelihood = np.max(likelihoods)
-                    torsion_mixtures[pattern] = {'mixture': mixture,
-                                            'max_likelihood': max_likelihood}
-                else: # Gaussian
-                    
-                    # Find minimum in the circular distribution
-                    
-                    # count, bins = np.histogram(values, 
-                    #                            bins=np.linspace(-180, 180, 181))
-                    # argmin = np.argmin(count)
-                    # bin = bins[argmin:argmin+2]
-                    # lowest_degree = np.mean(bin)
-                    
-                    # symmetrized_values = values + [-value for value in values]
-                    # positive_samples = np.linspace(0, 359, 360).reshape(-1, 1) # reshape for broadcasting
-                    # symmetrized_values = np.array(symmetrized_values)
-                    # positive_values = symmetrized_values + 180
-                    # distances = positive_samples - positive_values
-                    # mod_distances = np.mod(distances, 360)
-                    # min_distances = np.min(mod_distances, axis=1)
-                    # max_i = np.argmax(min_distances)
-                    # lowest_degree = max_i - 180
-                    
-                    abs_values = np.abs(values)
-                    samples = np.linspace(0, 180, 181).reshape(-1, 1)
-                    distances = np.abs(samples - abs_values)
-                    min_distances = np.min(distances, axis=1)
-                    max_i = np.argmax(min_distances)
-                    
-                    # import pdb;pdb.set_trace()
-                    
-                    # shift the circular distribution putting the lowest point at -180
-                    shifted_values = self.shift_torsion_values(values=values,
-                                                               x=max_i)
-
-                    # shifted_abs_values = np.abs(shifted_values)
-                    
-                    # mixture = self.get_mixture(shifted_abs_values)
-                    # max_likelihood = self.get_max_likelihood(mixture, shifted_abs_values)
-                    mixture = self.get_mixture(shifted_values)
-                    max_likelihood = self.get_max_likelihood(mixture, shifted_values)
-                    torsion_mixtures[pattern] = {'mixture': mixture,
-                                                 'shift': max_i,
-                                                 'max_likelihood': max_likelihood}
-            
+                torsion_mixture = get_torsion_mixture(values)
+                torsion_mixtures[pattern] = torsion_mixture
+                
+        # Generalized torsion pattern by removing only outer neighborhoods (default)
+        # or both outer and inner neighborhoods
+        logging.info(f'Computing generalized torsion mixtures for {self.source_name}')
+        inner_generalizations = [False, True]
+        for generalize_inner in inner_generalizations:
+            generalized_torsion_values = defaultdict(list)
+            for pattern, values in torsion_values.items():
+                generalized_pattern = pattern.generalize(inner_neighbors=generalize_inner)
+                generalized_torsion_values[generalized_pattern].extend(values)
+                
+            for pattern, values in tqdm(generalized_torsion_values.items()):
+                if len(values) > 50:
+                    torsion_mixture = get_torsion_mixture(values)
+                    torsion_mixtures[pattern] = torsion_mixture
+                
         mixtures = {'bond': bond_mixtures,
                     'angle': angle_mixtures,
                     'torsion': torsion_mixtures}
@@ -320,9 +332,16 @@ class ReferenceGeometry(ABC):
     def get_max_likelihood(self,
                            mixture: GaussianMixture,
                            values: list[float],
-                           n_samples: int = 3600,
+                           geometry: str,
+                           n_samples: int = 36000,
                            ) -> float:
-        values = mixture.means_.reshape(-1)
+        # values = mixture.means_.reshape(-1)
+        if geometry == 'bond':
+            values = np.linspace(0.5, 3.5, n_samples)
+        elif geometry == 'angle':
+            values = np.linspace(0, 180, n_samples)
+        else:
+            values = np.linspace(-180, 180, n_samples)
         likelihoods = self.get_likelihoods(mixture, values)
         max_likelihood = np.max(likelihoods)
         return max_likelihood
@@ -377,19 +396,19 @@ class ReferenceGeometry(ABC):
                                 torsion_values: Dict[str, List[float]]):
         
         bond_ranges = {}
-        for bond_tuple, values in bond_values.items():
+        for bond_pattern, values in bond_values.items():
             ranges = self.compute_authorized_ranges_bond(values)
-            bond_ranges[bond_tuple] = ranges
+            bond_ranges[bond_pattern] = ranges
         
         angle_ranges = {}
-        for angle_tuple, values in angle_values.items():
+        for angle_pattern, values in angle_values.items():
             ranges = self.compute_authorized_ranges_angle(values)
-            angle_ranges[angle_tuple] = ranges
+            angle_ranges[angle_pattern] = ranges
             
         torsion_ranges = {}
-        for torsion_tuple, values in torsion_values.items():
+        for torsion_pattern, values in torsion_values.items():
             ranges = self.compute_authorized_ranges_torsion(values)
-            torsion_ranges[torsion_tuple] = ranges
+            torsion_ranges[torsion_pattern] = ranges
         
         ranges = {
             'bond': bond_ranges,
@@ -404,10 +423,10 @@ class ReferenceGeometry(ABC):
                              mol: Mol) -> Dict[str, List[float]]:
         bond_values = defaultdict(list)
         for bond in mol.GetBonds():
-            bond_tuple = self.geometry_extractor.get_bond_tuple(bond)
+            bond_pattern = self.geometry_extractor.get_bond_pattern(bond)
             for conf in mol.GetConformers():
                 bond_length = self.geometry_extractor.get_bond_length(conf, bond)
-                bond_values[bond_tuple].append(bond_length)
+                bond_values[bond_pattern].append(bond_length)
         return bond_values
     
     
@@ -417,7 +436,7 @@ class ReferenceGeometry(ABC):
         angles_atom_ids = self.geometry_extractor.get_angles_atom_ids(mol)
         for begin_atom_idx, second_atom_idx, end_atom_idx in angles_atom_ids :
             
-            angle_tuple = self.geometry_extractor.get_angle_tuple(mol, 
+            angle_pattern = self.geometry_extractor.get_angle_pattern(mol, 
                                                                     begin_atom_idx, 
                                                                     second_atom_idx, 
                                                                     end_atom_idx)
@@ -427,7 +446,7 @@ class ReferenceGeometry(ABC):
                                                                         begin_atom_idx,
                                                                         second_atom_idx,
                                                                         end_atom_idx)
-                angle_values[angle_tuple].append(angle_value)
+                angle_values[angle_pattern].append(angle_value)
                 
         return angle_values
         
@@ -440,7 +459,7 @@ class ReferenceGeometry(ABC):
         torsion_atom_ids = self.geometry_extractor.get_torsions_atom_ids(mol)
         for begin_atom_idx, second_atom_idx, third_atom_idx, end_atom_idx in torsion_atom_ids :
             
-            torsion_tuple = self.geometry_extractor.get_torsion_tuple(mol,
+            torsion_pattern = self.geometry_extractor.get_torsion_pattern(mol,
                                                                         begin_atom_idx,
                                                                         second_atom_idx,
                                                                         third_atom_idx,
@@ -453,7 +472,7 @@ class ReferenceGeometry(ABC):
                                                                             third_atom_idx,
                                                                             end_atom_idx)
                 if not np.isnan(torsion_value):
-                    torsion_values[torsion_tuple].append(torsion_value)
+                    torsion_values[torsion_pattern].append(torsion_value)
                         
         return torsion_values
     
@@ -530,7 +549,7 @@ class ReferenceGeometry(ABC):
         
     
     def geometry_is_valid(self, 
-                          geometry_tuple: tuple, 
+                          geometry_pattern: GeometryPattern, 
                           value: float, 
                           geometry: str = 'bond',
                           new_pattern_is_valid: bool = True,
@@ -552,8 +571,8 @@ class ReferenceGeometry(ABC):
             
             in_range = False
             new_pattern = False
-            if geometry_tuple in ranges:
-                current_ranges = ranges[geometry_tuple]
+            if geometry_pattern in ranges:
+                current_ranges = ranges[geometry_pattern]
 
                 for range in current_ranges:
                     if value >= range[0] and value <= range[1]:
@@ -570,84 +589,86 @@ class ReferenceGeometry(ABC):
         elif self.validity_method == 'mixtures':
             
             if geometry == 'bond':
-                mixtures: MixturesDict = self.mixtures['bond']
+                mixtures = self.mixtures['bond']
             elif geometry == 'angle' :
-                mixtures: MixturesDict = self.mixtures['angle']
+                mixtures = self.mixtures['angle']
             elif geometry == 'torsion':
-                mixtures: MixturesDict = self.mixtures['torsion']
+                mixtures = self.mixtures['torsion']
                 
             else:
                 raise RuntimeError()
             
             q_value = np.nan
             new_pattern = False
-            if geometry_tuple in mixtures:
-                mixture_data = mixtures[geometry_tuple]
-                mixture = mixture_data['mixture']
-                max_likelihood = mixture_data['max_likelihood']
-                if geometry == 'torsion' :
-                    shift = mixture_data['shift']
-                    centre_bond_order = geometry_tuple[3]
-                    if centre_bond_order == '#':
-                        q_value = 1 # triple bond can have very variable torsion angles
-                    else:
-                        if self.get_closest_mixture:
-                            if self.torsion_mixture == 'VonMises':
-                                value = np.deg2rad(value) # VonMises on [-pi, pi]
-                                # we take the closest peak in the mixture
-                                mus, kappas = mixture.means_, mixture.covariances_
-                                mus = mus.reshape(-1)
-                                kappas = kappas.reshape(-1)
-                                distances = np.sqrt(np.square(np.cos(mus) - np.cos(value)) 
-                                                - np.square(np.sin(mus) - np.sin(value)))
-                                min_idx = np.argmin(distances)
-                                mu = mus[min_idx]
-                                kappa = kappas[min_idx]
-                                likelihood = vonmises.pdf(value, loc=mu, kappa=kappa)
-                                max_likelihood = vonmises.pdf(mu, loc=mu, kappa=kappa)
-                                q_value = likelihood.item() / max_likelihood
-                            else: # Gaussian
-                                means, vars = mixture.means_, mixture.covariances_
-                                means = means.reshape(-1)
-                                vars = vars.reshape(-1)
-                                assert means.shape == vars.shape
-                                stds = np.sqrt(vars)
-                                abs_value = np.abs(value)
-                                
-                                # shift to match mixture space, that put the minimum
-                                shifted_value = self.shift_abs_torsion_values(values=abs_value, 
-                                                                    x=shift)
-                                distances = np.sqrt(np.square(means - shifted_value))
-                                min_idx = np.argmin(distances)
-                                mean = means[min_idx]
-                                std = stds[min_idx]
-                                likelihood = norm.pdf(shifted_value, 
-                                                    loc=mean, 
-                                                    scale=std)
-                                max_likelihood = norm.pdf(mean, 
-                                                            loc=mean, 
-                                                            scale=std)
-                                q_value = likelihood.item() / max_likelihood
-                        else:
-                            values = [value]
-                            values = self.shift_torsion_values(values=values, x=shift)
-                            likelihood = self.get_likelihoods(mixture, values=values)
-                            q_value = likelihood.item() / max_likelihood
-                
-                else: # bond, angle
-                    values = [value]
-                    likelihood = self.get_likelihoods(mixture, values=values)
-                    q_value = likelihood.item() / max_likelihood
+            if geometry_pattern in mixtures:
+                geometry_mixture = mixtures[geometry_pattern]
+                q_value = self.get_q_value(value, 
+                                           geometry_pattern, 
+                                           geometry_mixture,
+                                           geometry)
                     
             else:
-                new_pattern = True
+                # no args: default only outer neighbors are removed (there is no inner in bonds)
+                generalized_pattern = geometry_pattern.generalize() 
+                logging.debug(f'Trying to generalize pattern (outer) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
+                if generalized_pattern in mixtures:
+                    geometry_mixture = mixtures[generalized_pattern]
+                    q_value = self.get_q_value(value, 
+                                                geometry_pattern, 
+                                                geometry_mixture,
+                                                geometry)
+                else:
+                    if geometry == 'bond':
+                        new_pattern = True
+                    else:
+                        generalized_pattern = geometry_pattern.generalize(inner_neighbors=True)
+                        logging.debug(f'Trying to generalize pattern (outer + inner) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
+                        if generalized_pattern in mixtures:
+                            geometry_mixture = mixtures[generalized_pattern]
+                            q_value = self.get_q_value(value, 
+                                                        geometry_pattern, 
+                                                        geometry_mixture,
+                                                        geometry)
+                        else:
+                            new_pattern = True
                 
-            # if q_value > 1:
-            #     print('q Higher than 1')
-            #     import pdb;pdb.set_trace()
+            if q_value > 1.1:
+                # q-value might go slighly over 1 because of precision
+                # But should not go over 1.1
+                logging.warning(f'q-value = {q_value} > 1.1 for pattern {geometry_pattern.to_string()} with value {value}')
+                
+            if new_pattern:
+                logging.warning(f'New pattern : {generalized_pattern.to_string()}')
                 
             q_value = np.min([1, q_value]) # we might not have sampled the best likelihood
                 
         return q_value, new_pattern
         
+    
+    def get_q_value(self,
+                    value: float,
+                    geometry_pattern: GeometryPattern,
+                    geometry_mixture: GeometryMixture,
+                    geometry: str
+                    ) -> float:
+        mixture = geometry_mixture.mixture
+        max_likelihood = geometry_mixture.max_likelihood
+        if geometry == 'torsion' :
+            shift = geometry_mixture.shift
+            bond_type_23 = geometry_pattern.bond_type_23
+            if bond_type_23 == 3:
+                # triple bond can have very variable torsion angles
+                # and angles should be checked anyway
+                q_value = 1
+            else:
+                values = [value]
+                values = self.shift_torsion_values(values=values, x=shift)
+                likelihood = self.get_likelihoods(mixture, values=values)
+                q_value = likelihood.item() / max_likelihood
         
+        else: # bond, angle
+            values = [value]
+            likelihood = self.get_likelihoods(mixture, values=values)
+            q_value = likelihood.item() / max_likelihood
+            
+        return q_value

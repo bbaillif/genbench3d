@@ -1,5 +1,3 @@
-import numpy as np
-
 from rdkit.Chem import (Bond, 
                         Mol,
                         Conformer,
@@ -9,6 +7,14 @@ from rdkit.Chem.rdMolTransforms import (GetBondLength,
                                         GetAngleDeg, 
                                         GetDihedralDeg)
 from rdkit.Chem.rdmolops import FindAllPathsOfLengthN
+from rdkit.Chem import GetPeriodicTable
+from .pattern import (CentralAtomTuple, 
+                      NeighborAtomTuple, 
+                      NeighborhoodTuple,
+                      BondPattern,
+                      AnglePattern,
+                      TorsionPattern,
+                      sort_neighbor_tuples)
 
 class GeometryExtractor():
     
@@ -19,18 +25,17 @@ class GeometryExtractor():
     def get_vdw_radius(self,
                        symbol: str):
         return self.periodic_table.GetRvdw(symbol)
-    
-    @staticmethod
-    def get_bond_order_str(bond_order: float) -> str:
-        if bond_order == 1:
-            return '-'
-        elif bond_order == 2:
-            return '='
-        elif bond_order == 3:
-            return '#'
-        else :
-            return '~'
         
+    @staticmethod
+    def get_bond_order_float(bond_order: str) -> float:
+        if bond_order == '-':
+            return 1
+        elif bond_order == '=':
+            return 2
+        elif bond_order == '#':
+            return 3
+        else:
+            return 1.5
         
     # @staticmethod
     # def get_atom_tuple(atom: Atom) -> tuple[str, str, int]:
@@ -41,39 +46,58 @@ class GeometryExtractor():
     #     return atom_tuple
     
     @staticmethod
-    def get_atom_tuple(atom: Atom) -> tuple[str, int]:
-        atom_symbol = atom.GetSymbol()
-        atom_charge = atom.GetFormalCharge()
-        atom_tuple = (atom_symbol, atom_charge)
+    def get_atom_tuple(atom: Atom) -> CentralAtomTuple:
+        atomic_num = atom.GetAtomicNum()
+        formal_charge = atom.GetFormalCharge()
+        atom_tuple = CentralAtomTuple(atomic_num, formal_charge)
         return atom_tuple
     
-    
-    def get_neighbor_tuple(self,
-                           atom: Atom,
-                           excluded_atoms: list[Atom]) -> tuple:
+    @staticmethod
+    def get_neighborhood_tuple(atom: Atom,
+                                excluded_atoms: list[Atom]
+                                ) -> NeighborhoodTuple:
         excluded_atom_idxs = [a.GetIdx() for a in excluded_atoms]
         neighbors = atom.GetNeighbors()
         neighbors = [neighbor 
                     for neighbor in neighbors 
                     if neighbor.GetIdx() not in excluded_atom_idxs]
-        neighbor_symbols = [atom.GetSymbol() for atom in neighbors]
+        # neighbor_symbols = [atom.GetSymbol() for atom in neighbors]
         # neighbor_symbols_1 = np.array(neighbor_symbols_1)
         # order = neighbor_symbols_1.argsort()
         # sorted_neighbors_1 = neighbor_symbols_1[order]
-        
+        atom_id = atom.GetIdx()
         mol = atom.GetOwningMol()
-        neighbor_bonds = [mol.GetBondBetweenAtoms(atom.GetIdx(), neighbor.GetIdx())
-                            for neighbor in neighbors]
-        neighbor_bond_types = [bond.GetBondTypeAsDouble() for bond in neighbor_bonds]
+        neighbor_tuples = []
+        for neighbor in neighbors:
+            atomic_num = neighbor.GetAtomicNum()
+            neighbor_id = neighbor.GetIdx()
+            bond = mol.GetBondBetweenAtoms(atom_id, neighbor_id)
+            bond_type = bond.GetBondTypeAsDouble()
+            neighbor_tuple = NeighborAtomTuple(atomic_num, bond_type)
+            neighbor_tuples.append(neighbor_tuple)
+            
+        # neighbor_bonds = [mol.GetBondBetweenAtoms(atom.GetIdx(), neighbor.GetIdx())
+        #                     for neighbor in neighbors]
+        # neighbor_bond_types = [bond.GetBondTypeAsDouble() for bond in neighbor_bonds]
         # neighbor_1_bonds = np.array()
-        sorting_idx = np.lexsort((neighbor_bond_types, neighbor_symbols))
-        # neighbor_tuple = tuple((self.get_atom_tuple(neighbors[i]), 
+        # sorting_idx = np.lexsort((neighbor_bond_types, neighbor_symbols))
+        # # neighbor_tuple = tuple((self.get_atom_tuple(neighbors[i]), 
+        # #                         self.get_bond_order_str(neighbor_bond_types[i]))
+        # #                        for i in sorting_idx)
+        # neighbor_tuple = tuple((neighbor_symbols[i], 
         #                         self.get_bond_order_str(neighbor_bond_types[i]))
         #                        for i in sorting_idx)
-        neighbor_tuple = tuple((neighbor_symbols[i], 
-                                self.get_bond_order_str(neighbor_bond_types[i]))
-                               for i in sorting_idx)
-        return neighbor_tuple
+        
+        if len(neighbor_tuples) == 0:
+            neighborhood_tuple = NeighborhoodTuple(())
+        else:
+            sorted_neighbor_tuples = sort_neighbor_tuples(neighbor_tuples)
+            if len(neighbor_tuples) > 1:
+                import pdb
+                assert sorted_neighbor_tuples[0].atomic_num >= sorted_neighbor_tuples[1].atomic_num, pdb.set_trace()
+            neighborhood_tuple = NeighborhoodTuple(tuple(sorted_neighbor_tuples))
+        
+        return neighborhood_tuple
     
     
     def get_bonds(self,
@@ -99,110 +123,114 @@ class GeometryExtractor():
         return GetBondLength(conf, bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
 
     
-    def get_bond_tuple(self, 
-                        bond: Bond):
-        bond_order = bond.GetBondTypeAsDouble()
-        bond_order_str = self.get_bond_order_str(bond_order)
+    def get_bond_pattern(self, 
+                        bond: Bond) -> BondPattern:
+        bond_type = bond.GetBondTypeAsDouble()
         begin_atom = bond.GetBeginAtom()
         end_atom = bond.GetEndAtom()
-        atom_symbol_1 = begin_atom.GetSymbol()
-        atom_symbol_2 = end_atom.GetSymbol()
         
         # TODO: detection of 3 and 4 membered-rings
         
         atom_tuple_1 = self.get_atom_tuple(begin_atom)
         atom_tuple_2 = self.get_atom_tuple(end_atom)
         
-        neighbor_tuple_1 = self.get_neighbor_tuple(begin_atom, 
-                                                   excluded_atoms=[end_atom])
-        neighbor_tuple_2 = self.get_neighbor_tuple(end_atom,
-                                                   excluded_atoms=[begin_atom])
+        neighborhood_tuple_1 = self.get_neighborhood_tuple(begin_atom, 
+                                                            excluded_atoms=[end_atom])
+        neighborhood_tuple_2 = self.get_neighborhood_tuple(end_atom,
+                                                            excluded_atoms=[begin_atom])
         
-        if atom_symbol_1 < atom_symbol_2:
-            bond_tuple = (neighbor_tuple_1, atom_tuple_1, bond_order_str, 
-                          atom_tuple_2, neighbor_tuple_2)
+        # Comparison order: central atom tuples, neighborhood_tuples
+        ascending_atom_id_order = True # Default
+        if atom_tuple_1 < atom_tuple_2:
+            ascending_atom_id_order = False
+        elif atom_tuple_1 == atom_tuple_2:
+            if neighborhood_tuple_1 < neighborhood_tuple_2:
+                ascending_atom_id_order = False
+        
+        if ascending_atom_id_order:
+            bond_pattern = BondPattern(atom_tuple_1, 
+                                       neighborhood_tuple_1, 
+                                       bond_type,
+                                       atom_tuple_2,
+                                       neighborhood_tuple_2)
         else:
-            bond_tuple = (neighbor_tuple_2, atom_tuple_2, bond_order_str, 
-                          atom_tuple_1, neighbor_tuple_1)
+            bond_pattern = BondPattern(atom_tuple_2, 
+                                       neighborhood_tuple_2, 
+                                       bond_type,
+                                       atom_tuple_1,
+                                       neighborhood_tuple_1)
             
-        # import pdb;pdb.set_trace()
-            
-        return bond_tuple
+        return bond_pattern
     
     
     def get_angles_atom_ids(self,
                            mol: Mol,
                             consider_hydrogens: bool = True):
         # angles are defined by three consecutive atom in the graph, we take their idx
-        paths = FindAllPathsOfLengthN(mol, 3, useBonds=False, useHs=True)
+        paths = FindAllPathsOfLengthN(mol, 3, useBonds=False, useHs=consider_hydrogens)
         
-        if not consider_hydrogens:
-            returned_tuples = []
-            for path in paths:
-                begin_atom_idx, second_atom_idx, end_atom_idx = path
-                atom_symbols = [mol.GetAtomWithIdx(begin_atom_idx).GetSymbol(),
-                                mol.GetAtomWithIdx(second_atom_idx).GetSymbol(),
-                                mol.GetAtomWithIdx(end_atom_idx).GetSymbol()]
-                if not 'H' in atom_symbols:
-                    returned_tuples.append(path)
-        else:
-            returned_tuples = [tuple(path) for path in paths]
+        returned_tuples = [tuple(path) for path in paths]
             
         return returned_tuples
     
     
-    def get_angle_tuple(self, 
+    def get_angle_pattern(self, 
                          mol: Mol,
                          begin_atom_idx: int, 
                          second_atom_idx: int, 
-                         end_atom_idx: int) -> str:
+                         end_atom_idx: int) -> AnglePattern:
+        
         begin_atom = mol.GetAtomWithIdx(begin_atom_idx)
         second_atom = mol.GetAtomWithIdx(second_atom_idx)
         end_atom = mol.GetAtomWithIdx(end_atom_idx)
         
-        atom_symbol_1 = begin_atom.GetSymbol()
-        bond1 = mol.GetBondBetweenAtoms(begin_atom_idx, second_atom_idx)
-        bond_order_1 = bond1.GetBondTypeAsDouble()
-        atom_symbol_2 = second_atom.GetSymbol()
-        bond2 = mol.GetBondBetweenAtoms(second_atom_idx, end_atom_idx)
-        bond_order_2 = bond2.GetBondTypeAsDouble()
-        atom_symbol_3 = end_atom.GetSymbol()
-        
-        bond_order_str_1 = self.get_bond_order_str(bond_order_1)
-        bond_order_str_2 = self.get_bond_order_str(bond_order_2)
+        bond_12 = mol.GetBondBetweenAtoms(begin_atom_idx, second_atom_idx)
+        bond_type_12 = bond_12.GetBondTypeAsDouble()
+        bond_23 = mol.GetBondBetweenAtoms(second_atom_idx, end_atom_idx)
+        bond_type_23 = bond_23.GetBondTypeAsDouble()
         
         atom_tuple_1 = self.get_atom_tuple(begin_atom)
         atom_tuple_2 = self.get_atom_tuple(second_atom)
         atom_tuple_3 = self.get_atom_tuple(end_atom)
         
-        neighbor_tuple_1 = self.get_neighbor_tuple(begin_atom, 
-                                                   excluded_atoms=[end_atom, second_atom])
-        neighbor_tuple_2 = self.get_neighbor_tuple(second_atom,
-                                                   excluded_atoms=[begin_atom, end_atom])
-        neighbor_tuple_3 = self.get_neighbor_tuple(end_atom,
-                                                   excluded_atoms=[begin_atom, second_atom])
+        neighborhood_tuple_1 = self.get_neighborhood_tuple(begin_atom, 
+                                                            excluded_atoms=[end_atom, second_atom])
+        neighborhood_tuple_2 = self.get_neighborhood_tuple(second_atom,
+                                                            excluded_atoms=[begin_atom, end_atom])
+        neighborhood_tuple_3 = self.get_neighborhood_tuple(end_atom,
+                                                            excluded_atoms=[begin_atom, second_atom])
         
-        ascending_order = None
-        if atom_symbol_1 < atom_symbol_3:
-            ascending_order = True
-        elif atom_symbol_1 == atom_symbol_3:
-            if bond_order_1 < bond_order_2:
-                ascending_order = True
-            else:
-                ascending_order = False
+        # Comparison order: bond_types, central_atom_tuples(1-3), neighborhood_tuples(1-3)
+        ascending_atom_id_order = True # Default
+        if bond_type_12 < bond_type_23:
+            ascending_atom_id_order = False
+        elif bond_type_12 == bond_type_23:
+            if atom_tuple_1 < atom_tuple_3:
+                ascending_atom_id_order = False
+            elif atom_tuple_1 == atom_tuple_3:
+                if neighborhood_tuple_1 < neighborhood_tuple_3:
+                    ascending_atom_id_order = False
+                
+        if ascending_atom_id_order:
+            angle_pattern = AnglePattern(atom_tuple_1,
+                                         neighborhood_tuple_1,
+                                         bond_type_12,
+                                         atom_tuple_2,
+                                         neighborhood_tuple_2,
+                                         bond_type_23,
+                                         atom_tuple_3,
+                                         neighborhood_tuple_3)
         else:
-            ascending_order = False
+            angle_pattern = AnglePattern(atom_tuple_3,
+                                         neighborhood_tuple_3,
+                                         bond_type_23,
+                                         atom_tuple_2,
+                                         neighborhood_tuple_2,
+                                         bond_type_12,
+                                         atom_tuple_1,
+                                         neighborhood_tuple_1)
             
-        if ascending_order:
-            angle_tuple = (neighbor_tuple_1, atom_tuple_1, bond_order_str_1, 
-                           atom_tuple_2, neighbor_tuple_2,
-                           bond_order_str_2, atom_tuple_3, neighbor_tuple_3)
-        else:
-            angle_tuple = (neighbor_tuple_3, atom_tuple_3, bond_order_str_2, 
-                           atom_tuple_2, neighbor_tuple_2,
-                           bond_order_str_1, atom_tuple_1, neighbor_tuple_1)
-            
-        return angle_tuple
+        return angle_pattern
     
     
     def get_angle_value(self,
@@ -220,91 +248,88 @@ class GeometryExtractor():
         # dihedrals are defined by four consecutive atom in the graph, we take their idx
         paths = FindAllPathsOfLengthN(mol, 4, useBonds=False, useHs=consider_hydrogens)
         
-        # if not consider_hydrogens:
-        #     returned_tuples = []
-        #     for path in paths:
-        #         begin_atom_idx, second_atom_idx, third_atom_idx, end_atom_idx = path
-        #         atom_symbols = [mol.GetAtomWithIdx(begin_atom_idx).GetSymbol(),
-        #                         mol.GetAtomWithIdx(second_atom_idx).GetSymbol(),
-        #                         mol.GetAtomWithIdx(third_atom_idx).GetSymbol(),
-        #                         mol.GetAtomWithIdx(end_atom_idx).GetSymbol()]
-        #         if not 'H' in atom_symbols:
-        #             returned_tuples.append(path)
-        # else:
         returned_tuples = [tuple(path) for path in paths]
         
         return returned_tuples
     
     
-    def get_torsion_tuple(self,
-                             mol: Mol,
+    def get_torsion_pattern(self,
+                            mol: Mol,
                             begin_atom_idx: int, 
                             second_atom_idx: int, 
                             third_atom_idx: int,
-                            end_atom_idx: int):
+                            end_atom_idx: int) -> TorsionPattern:
         
         begin_atom = mol.GetAtomWithIdx(begin_atom_idx)
         second_atom = mol.GetAtomWithIdx(second_atom_idx)
         third_atom = mol.GetAtomWithIdx(third_atom_idx)
         end_atom = mol.GetAtomWithIdx(end_atom_idx)
         
-        atom_symbol_1 = begin_atom.GetSymbol()
-        bond1 = mol.GetBondBetweenAtoms(begin_atom_idx, second_atom_idx)
-        bond_order_1 = bond1.GetBondTypeAsDouble()
-        atom_symbol_2 = second_atom.GetSymbol()
-        bond2 = mol.GetBondBetweenAtoms(second_atom_idx, third_atom_idx)
-        bond_order_2 = bond2.GetBondTypeAsDouble()
-        atom_symbol_3 = third_atom.GetSymbol()
-        bond3 = mol.GetBondBetweenAtoms(third_atom_idx, end_atom_idx)
-        bond_order_3 = bond3.GetBondTypeAsDouble()
-        atom_symbol_4 = end_atom.GetSymbol()
-        
-        bond_order_str_1 = self.get_bond_order_str(bond_order_1)
-        bond_order_str_2 = self.get_bond_order_str(bond_order_2)
-        bond_order_str_3 = self.get_bond_order_str(bond_order_3)
+        bond_12 = mol.GetBondBetweenAtoms(begin_atom_idx, second_atom_idx)
+        bond_type_12 = bond_12.GetBondTypeAsDouble()
+        bond_23 = mol.GetBondBetweenAtoms(second_atom_idx, third_atom_idx)
+        bond_type_23 = bond_23.GetBondTypeAsDouble()
+        bond_34 = mol.GetBondBetweenAtoms(third_atom_idx, end_atom_idx)
+        bond_type_34 = bond_34.GetBondTypeAsDouble()
         
         atom_tuple_1 = self.get_atom_tuple(begin_atom)
         atom_tuple_2 = self.get_atom_tuple(second_atom)
         atom_tuple_3 = self.get_atom_tuple(third_atom)
         atom_tuple_4 = self.get_atom_tuple(end_atom)
         
-        neighbor_tuple_1 = self.get_neighbor_tuple(begin_atom, 
-                                                   excluded_atoms=[second_atom, third_atom, end_atom])
-        neighbor_tuple_2 = self.get_neighbor_tuple(second_atom,
-                                                   excluded_atoms=[begin_atom, third_atom, end_atom])
-        neighbor_tuple_3 = self.get_neighbor_tuple(third_atom,
-                                                   excluded_atoms=[begin_atom, second_atom, end_atom])
-        neighbor_tuple_4 = self.get_neighbor_tuple(end_atom,
-                                                   excluded_atoms=[begin_atom, second_atom, third_atom])
+        neighborhood_tuple_1 = self.get_neighborhood_tuple(begin_atom, 
+                                                            excluded_atoms=[second_atom, third_atom, end_atom])
+        neighborhood_tuple_2 = self.get_neighborhood_tuple(second_atom,
+                                                            excluded_atoms=[begin_atom, third_atom, end_atom])
+        neighborhood_tuple_3 = self.get_neighborhood_tuple(third_atom,
+                                                            excluded_atoms=[begin_atom, second_atom, end_atom])
+        neighborhood_tuple_4 = self.get_neighborhood_tuple(end_atom,
+                                                            excluded_atoms=[begin_atom, second_atom, third_atom])
         
-        ascending_order = None
-        if atom_symbol_2 < atom_symbol_3:
-            ascending_order = True
-        elif atom_symbol_2 == atom_symbol_3:
-            if bond_order_1 < bond_order_3:
-                ascending_order = True
-            elif bond_order_1 == bond_order_3:
-                if atom_symbol_1 < atom_symbol_4:
-                    ascending_order = True
-                else:
-                    ascending_order = False
-            else:
-                ascending_order = False
+        # Comparison order: central_atom_tuples (2-3), bond_types (12-34), 
+        # central_atom_tuples (1-4), neighborhood_tuples (2-3), neighborhood_tuples (1-4)
+        ascending_atom_id_order = True # Default
+        if atom_tuple_2 < atom_tuple_3:
+            ascending_atom_id_order = False
+        elif atom_tuple_2 == atom_tuple_3:
+            if bond_type_12 < bond_type_34:
+                ascending_atom_id_order = False
+            elif bond_type_12 == bond_type_34:
+                if atom_tuple_1 < atom_tuple_4:
+                    ascending_atom_id_order = False
+                elif atom_tuple_1 == atom_tuple_4:
+                    if neighborhood_tuple_2 < neighborhood_tuple_3:
+                        ascending_atom_id_order = False
+                    elif neighborhood_tuple_2 == neighborhood_tuple_3:
+                        if neighborhood_tuple_1 < neighborhood_tuple_4:
+                            ascending_atom_id_order = False
+            
+        if ascending_atom_id_order:
+            torsion_pattern = TorsionPattern(atom_tuple_1,
+                                             neighborhood_tuple_1,
+                                             bond_type_12,
+                                             atom_tuple_2,
+                                             neighborhood_tuple_2,
+                                             bond_type_23,
+                                             atom_tuple_3,
+                                             neighborhood_tuple_3,
+                                             bond_type_34,
+                                             atom_tuple_4,
+                                             neighborhood_tuple_4)
         else:
-            ascending_order = False
+            torsion_pattern = TorsionPattern(atom_tuple_4,
+                                             neighborhood_tuple_4,
+                                             bond_type_34,
+                                             atom_tuple_3,
+                                             neighborhood_tuple_3,
+                                             bond_type_23,
+                                             atom_tuple_2,
+                                             neighborhood_tuple_2,
+                                             bond_type_12,
+                                             atom_tuple_1,
+                                             neighborhood_tuple_1)
             
-        if ascending_order:
-            torsion_tuple = (atom_tuple_1, bond_order_str_1, neighbor_tuple_2, 
-                             atom_tuple_2, bond_order_str_2, atom_tuple_3, 
-                             neighbor_tuple_3, bond_order_str_3, atom_tuple_4)
-        else:
-            torsion_tuple = (atom_tuple_4, bond_order_str_3, neighbor_tuple_3,
-                              atom_tuple_3, bond_order_str_2, atom_tuple_2, 
-                              neighbor_tuple_2, bond_order_str_1, atom_tuple_1)
-            
-        # import pdb;pdb.set_trace()
-            
-        return torsion_tuple
+        return torsion_pattern
     
     
     def get_torsion_value(self,

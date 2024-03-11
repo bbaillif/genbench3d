@@ -3,3 +3,11 @@ from .reference_geometry import ReferenceGeometry
 from .ligboundconf_geometry import LigBoundConfGeometry
 from .csd_geometry import CSDGeometry
 from .cross_docked_geometry import CrossDockedGeometry
+from .csd_drug_geometry import CSDDrugGeometry
+from .clash_checker import ClashChecker, Clash
+from .pattern import (CentralAtomTuple, 
+                      NeighborAtomTuple, 
+                      NeighborhoodTuple,
+                      BondPattern,
+                      AnglePattern,
+                      TorsionPattern)

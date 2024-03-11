@@ -134,7 +134,7 @@ class VinaProtein(Protein):
         
         fixer = PDBFixer(filename=input_pdb_filepath)
         # We only use PDBFixer to reinitialize the chains and segment id combinations
-        # (e.g. chain A and B, having both segment A and B, with be renamed chain A to D)
+        # (e.g. chain A and B, having both segment A and B, will be renamed chain A to D)
         # fixer.findMissingResidues() # it cannot find them with CrossDocked because it does not contain sequence info
         # fixer.findNonstandardResidues()
         # fixer.replaceNonstandardResidues()

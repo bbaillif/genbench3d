@@ -127,3 +127,5 @@ DEFAULT_TFD_THRESHOLD = 0.2
 
 SCHRODINGER_PATH = '/usr/local/shared/schrodinger/current/'
 GLIDE_OUTPUT_DIRPATH = '/home/bb596/genbench3d/glide_working_dir/'
+
+CSD_DRUG_SUBSET_PATH = os.path.join(BENCHMARK_DIRPATH, 'CSD_Drug_Subset.gcd')
