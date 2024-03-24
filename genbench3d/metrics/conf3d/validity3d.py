@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import time
 
 from tqdm import tqdm
 from typing import Tuple, List, Dict, Any
@@ -9,7 +10,7 @@ from genbench3d.geometry import (GeometryExtractor,
                                  CSDGeometry,
                                  CSDDrugGeometry)
 from rdkit import Chem
-from rdkit.Chem import Mol
+from rdkit.Chem import Mol, Conformer
 from ..metric import Metric
 from genbench3d.conf_ensemble import GeneratedCEL
 from genbench3d.utils import rdkit_conf_to_ccdc_mol
@@ -17,17 +18,24 @@ from ccdc.conformer import GeometryAnalyser
 from ccdc.io import Molecule
 from scipy.stats.mstats import gmean
 from genbench3d.geometry import ClashChecker
+from genbench3d.params import (Q_VALUE_THRESHOLD, 
+                               CLASH_SAFETY_RATIO, 
+                               MAX_RING_PLANE_DISTANCE,
+                               CONSIDER_HYDROGENS,
+                               INCLUDE_TORSIONS)
+from collections import defaultdict
 
 class Validity3D(Metric):
     
     def __init__(self,
+                 reference_geometry: ReferenceGeometry,
                  name: str = 'Validity3D',
-                 reference_geometry: ReferenceGeometry = None,
                  backend: str = 'reference',
-                 q_value_threshold: float = 0.001,
-                 clash_safety_ratio: float = 0.75,
-                 include_torsions: float = False,
-                 consider_hs: float = False,
+                 q_value_threshold: float = Q_VALUE_THRESHOLD,
+                 clash_safety_ratio: float = CLASH_SAFETY_RATIO,
+                 max_ring_plane_distance: float = MAX_RING_PLANE_DISTANCE,
+                 include_torsions: float = INCLUDE_TORSIONS,
+                 consider_hs: float = CONSIDER_HYDROGENS,
                  ) -> None:
         super().__init__(name)
         self.geometry_extractor = GeometryExtractor()
@@ -38,9 +46,10 @@ class Validity3D(Metric):
         
         assert backend in ['reference', 'CSD']
         self.backend = backend
-        if backend == 'CSD':
+        if backend == 'CSD': # CSD backend is slower, but works on the whole CSD version installed locally
             self.geometry_analyser = GeometryAnalyser()
         self.q_value_threshold = q_value_threshold
+        self.max_ring_plane_distance = max_ring_plane_distance
         self.include_torsions = include_torsions
         self.consider_hs = consider_hs
         
@@ -48,7 +57,7 @@ class Validity3D(Metric):
                                           consider_hs=self.consider_hs)
         
         self.valid_conf_ids = {}
-        self.new_patterns = {}
+        self.new_patterns: dict[str, tuple[str, str]] = {}
         self.validities = {}
         self.clashes = {}
         self.n_valid_confs = None
@@ -59,8 +68,8 @@ class Validity3D(Metric):
             cel: GeneratedCEL) -> float:
         
         self.n_valid_confs = 0
-        for name, ce in tqdm(cel.items()):
-        # for name, ce in cel.items():
+        # for name, ce in tqdm(cel.items()):
+        for name, ce in cel.items():
             mol = ce.mol
             valid_conf_ids = self.get_valid_conf_ids_for_mol(mol, 
                                                             name)
@@ -98,6 +107,10 @@ class Validity3D(Metric):
                 new_patterns.extend([('torsion', p) for p in new_torsion_patterns])
                 if self.include_torsions:
                     valid_conf_ids = valid_conf_ids.intersection(valid_torsion_conf_ids)
+                    
+            valid_ring_conf_ids, ring_validities = self.analyze_rings(mol)
+            valid_conf_ids = valid_conf_ids.intersection(valid_ring_conf_ids)
+            validities.extend(ring_validities)
                 
         elif self.backend == 'CSD':
             
@@ -331,13 +344,81 @@ class Validity3D(Metric):
         return valid_torsion_conf_ids, torsion_validities, new_torsion_patterns
     
     
+    def analyze_rings(self,
+                      mol: Mol) -> tuple[list[int], dict[str, Any]]:
+        
+        rings_atom_ids = self.geometry_extractor.get_planar_rings_atom_ids(mol)
+        
+        ring_validities = []
+        if len(rings_atom_ids) == 0:
+            valid_ring_conf_ids = [conf.GetId() for conf in mol.GetConformers()]
+            
+        else:
+            valid_ring_conf_ids = []
+            for conf in mol.GetConformers():
+                conf_is_valid = True
+                conf_id = conf.GetId()
+            
+                max_distances = []
+                ring_is_planars = []
+                for atom_ids in rings_atom_ids:
+                    max_distance = self.get_max_distance_to_plane(conf, atom_ids)
+                    ring_is_planar = max_distance < self.max_ring_plane_distance
+                    max_distances.append(max_distance)
+                    ring_is_planars.append(ring_is_planar)
+                        
+                    validity_d = {
+                        'conf_id': conf_id,
+                        'geometry_type': 'ring',
+                        'pattern': len(atom_ids),
+                        'value': max_distance,
+                        'q-value': float(ring_is_planar)
+                    }
+                    ring_validities.append(validity_d)
+                
+                    if not ring_is_planar:
+                        conf_is_valid = False
+                
+                if conf_is_valid:
+                    valid_ring_conf_ids.append(conf_id)
+                
+        return valid_ring_conf_ids, ring_validities
+    
+    
+    def get_max_distance_to_plane(self,
+                                    conf: Conformer,
+                                    ring_atom_ids: list[int]):
+        # Algorithm extracted from PoseBusters : 
+        # https://github.com/maabuu/posebusters/blob/main/posebusters/modules/flatness.py
+        coords = conf.GetPositions()[ring_atom_ids,:]
+        center = coords.mean(axis=0)
+        centred_coords = coords - center
+        # singular value decomposition
+        # start_time = time.time()
+        _, _, V = np.linalg.svd(centred_coords)
+        # time_elapsed = time.time() - start_time
+        # print(time_elapsed)
+        # if time_elapsed > 5:
+        #     import pdb;pdb.set_trace()
+        # last vector in V is normal vector to plane
+        n = V[-1]
+        # distances to plane are projections onto normal
+        distance_to_plane = np.dot(centred_coords, n)
+        max_distance = np.max(distance_to_plane)
+        return max_distance
+    
+    
     def analyze_clashes(self,
                         mol: Mol) -> Tuple[List[int], 
                                             Dict[str, Any]]:
         
         conf_clashes = {}
-        try:
         
+        try:
+            
+            if not self.consider_hs:
+                mol = Chem.RemoveHs(mol) # Saves time by not computing H interatomic distances
+                
             clashes = []
             valid_interbonddist_conf_ids = []
             
@@ -368,59 +449,11 @@ class Validity3D(Metric):
             
             for conf in mol.GetConformers():
                 conf_id = conf.GetId()
-                if not self.consider_hs:
-                    mol_noh = Chem.RemoveHs(mol) # Saves time by not computing H interatomic distances
-                clashes = self.clash_checker.get_clashes(mol_noh, conf_id, excluded_pairs)
+                clashes = self.clash_checker.get_clashes(mol, conf_id, excluded_pairs)
                 if len(clashes) > 0:
                     conf_clashes[conf_id] = clashes
                 else:
                     valid_interbonddist_conf_ids.append(conf_id)
-                # conf_id = conf.GetId()
-                # distance_matrix = Chem.Get3DDistanceMatrix(mol=mol, confId=conf_id)
-                # is_clashing = False
-            
-                # for i, atom1 in enumerate(atoms):
-                #     idx1 = atom1.GetIdx()
-                #     if i != idx1:
-                #         print('Check atom indices')
-                #         import pdb;pdb.set_trace()
-                #     symbol1 = atom1.GetSymbol()
-                #     for j, atom2 in enumerate(atoms[i+1:]):
-                #         idx2 = atom2.GetIdx()
-                #         if i+1+j != idx2:
-                #             print('Check atom indices')
-                #             import pdb;pdb.set_trace()
-                #         symbol2 = atom2.GetSymbol()
-                #         not_bond = (idx1, idx2) not in bond_idxs
-                #         not_angle = (idx1, idx2) not in two_hop_idxs
-                #         not_torsion = (idx1, idx2) not in three_hop_idxs
-                #         if not_bond and not_angle and not_torsion:
-                #             vdw1 = self.geometry_extractor.get_vdw_radius(symbol1)
-                #             vdw2 = self.geometry_extractor.get_vdw_radius(symbol2)
-                            
-                #             if symbol1 == 'H':
-                #                 min_distance = vdw2
-                #             elif symbol2 == 'H':
-                #                 min_distance = vdw1
-                #             else:
-                #                 # min_distance = vdw1 + vdw2 - self.clash_tolerance
-                #                 min_distance = (vdw1 + vdw2) * 0.75
-                                
-                #             distance = distance_matrix[idx1, idx2]
-                #             if distance < min_distance:
-                #                 is_clashing = True
-                #                 invalid_d = {
-                #                 'conf_id': conf_id,
-                #                 'atom_idx1': idx1,
-                #                 'atom_idx2': idx2,
-                #                 'atom_symbol1': symbol1,
-                #                 'atom_symbol2': symbol2,
-                #                 'distance': distance,
-                #                 }
-                #                 clashes.append(invalid_d)
-                
-                # if not is_clashing:
-                #     valid_interbonddist_conf_ids.append(conf_id)
                     
         except Exception as e:
             print(e)
@@ -428,6 +461,35 @@ class Validity3D(Metric):
                 
         return valid_interbonddist_conf_ids, conf_clashes
             
+    
+    def get_invalid_geometries(self):
+        all_n_invs = defaultdict(list)
+        invalidity_dfs = []
+        for name, validity_list in self.validities.items():
+            # columns: name, conf_id, geometry_type, string, value
+            validity_df = pd.DataFrame(validity_list) 
+            if len(validity_df) > 0:
+                invalidity_df = validity_df[validity_df['q-value'] < self.q_value_threshold].copy()
+                invalidity_df['name'] = name
+                if invalidity_df.shape[0] > 0:
+                    invalid_numbers_df = invalidity_df.pivot_table(values='value', 
+                                                                    index=['name', 'conf_id'],
+                                                                    columns=['geometry_type'],
+                                                                    aggfunc='count')
+                    for geometry in ['bond', 'angle', 'torsion', 'ring']:#
+                        if geometry in invalid_numbers_df:
+                            n_inv = invalid_numbers_df[geometry].values[0]
+                        else:
+                            n_inv = 0
+                        all_n_invs[geometry].append(n_inv)
+                    
+                    invalidity_dfs.append(invalid_numbers_df)
+            
+        if len(invalidity_dfs) > 0:
+            self.invalidity_df = pd.concat(invalidity_dfs)
+        
+        return all_n_invs
+    
     
     def get_invalid_bonds_angles(self):
         all_n_inv_bonds = []
@@ -445,9 +507,9 @@ class Validity3D(Metric):
                                                                     columns=['geometry_type'],
                                                                     aggfunc='count')
                     if 'bond' in invalid_numbers_df.columns:
-                        all_n_inv_bonds.extend(invalid_numbers_df['bond'].values)
+                        all_n_inv_bonds.extend(invalid_numbers_df['bond'].values.tolist())
                     if 'angle' in invalid_numbers_df.columns: 
-                        all_n_inv_angles.extend(invalid_numbers_df['angle'].values)
+                        all_n_inv_angles.extend(invalid_numbers_df['angle'].values.tolist())
                     
                     invalidity_dfs.append(invalid_numbers_df)
             
@@ -516,3 +578,9 @@ class Validity3D(Metric):
         
         return agg_q_values
         
+    def get_new_patterns(self):
+        returned_patterns = []
+        for name, new_patterns in self.new_patterns.items():
+            patterns = [t[1] for t in new_patterns]
+            returned_patterns.extend(patterns)
+        return returned_patterns

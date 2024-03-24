@@ -26,17 +26,19 @@ class Diversity3D(Metric):
                 
                 if n_confs > 1:
                     tfd_matrix = cel.get_tfd_matrix(name)
-                    icd = np.mean(tfd_matrix)
-                    
-                    icds.append(icd)
-                    self.icds[name].append(icd)
+                    if len(tfd_matrix) > 0:
+                        icd = np.mean(tfd_matrix)
+                        
+                        icds.append(icd)
+                        self.icds[name].append(icd)
             except Exception as e:
                 logging.warning(f'Diversity 3D exception: {e}')
                 
         if len(icds) > 0:
             diversity_3D = np.mean([icd 
                         for icd in icds 
-                        if icd != 0])
+                        # if icd != 0
+                        ])
         else:
             diversity_3D = np.nan
             

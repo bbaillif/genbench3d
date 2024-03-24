@@ -14,12 +14,15 @@ from .pattern import (CentralAtomTuple,
                       BondPattern,
                       AnglePattern,
                       TorsionPattern,
+                      RingSizeTuple,
                       sort_neighbor_tuples)
 
 class GeometryExtractor():
     
-    def __init__(self) -> None:
+    def __init__(self,
+                 authorized_ring_sizes: list[int] = list(range(3, 10))) -> None:
         self.periodic_table = GetPeriodicTable()
+        self.authorized_ring_sizes = authorized_ring_sizes
     
     
     def get_vdw_radius(self,
@@ -46,10 +49,18 @@ class GeometryExtractor():
     #     return atom_tuple
     
     @staticmethod
-    def get_atom_tuple(atom: Atom) -> CentralAtomTuple:
+    def get_atom_tuple(atom: Atom,
+                       ring_sizes: list[int] = None) -> CentralAtomTuple:
         atomic_num = atom.GetAtomicNum()
         formal_charge = atom.GetFormalCharge()
-        atom_tuple = CentralAtomTuple(atomic_num, formal_charge)
+        if ring_sizes is not None and len(ring_sizes) > 0:
+            ring_sizes = sorted(ring_sizes, reverse=True)
+            ring_size_tuple = RingSizeTuple(tuple(ring_sizes))
+            atom_tuple = CentralAtomTuple(atomic_num, 
+                                          formal_charge,
+                                          ring_size_tuple)
+        else:
+            atom_tuple = CentralAtomTuple(atomic_num, formal_charge)
         return atom_tuple
     
     @staticmethod
@@ -129,10 +140,21 @@ class GeometryExtractor():
         begin_atom = bond.GetBeginAtom()
         end_atom = bond.GetEndAtom()
         
-        # TODO: detection of 3 and 4 membered-rings
+        # TODO: clearer detection of 3 and 4 membered-rings
         
-        atom_tuple_1 = self.get_atom_tuple(begin_atom)
-        atom_tuple_2 = self.get_atom_tuple(end_atom)
+        ring_sizes = [[] for _ in range(2)]
+        atom_ids = [atom.GetIdx() for atom in [begin_atom, end_atom]]
+        ring_info = bond.GetOwningMol().GetRingInfo()
+        ring_atoms = ring_info.AtomRings()
+        for ring in ring_atoms:
+            for i, atom_id in enumerate(atom_ids):
+                if atom_id in ring:
+                    ring_size = len(ring)
+                    if ring_size in self.authorized_ring_sizes:
+                        ring_sizes[i].append(ring_size)
+        
+        atom_tuple_1 = self.get_atom_tuple(begin_atom, ring_sizes[0])
+        atom_tuple_2 = self.get_atom_tuple(end_atom, ring_sizes[1])
         
         neighborhood_tuple_1 = self.get_neighborhood_tuple(begin_atom, 
                                                             excluded_atoms=[end_atom])
@@ -184,14 +206,24 @@ class GeometryExtractor():
         second_atom = mol.GetAtomWithIdx(second_atom_idx)
         end_atom = mol.GetAtomWithIdx(end_atom_idx)
         
+        ring_sizes = [[]] * 3
+        atom_ids = [atom.GetIdx() for atom in [begin_atom, second_atom, end_atom]]
+        ring_info = mol.GetRingInfo()
+        ring_atoms = ring_info.AtomRings()
+        for ring in ring_atoms:
+            for i, atom_id in enumerate(atom_ids):
+                if atom_id in ring:
+                    ring_size = len(ring)
+                    ring_sizes[i].append(ring_size)
+        
         bond_12 = mol.GetBondBetweenAtoms(begin_atom_idx, second_atom_idx)
         bond_type_12 = bond_12.GetBondTypeAsDouble()
         bond_23 = mol.GetBondBetweenAtoms(second_atom_idx, end_atom_idx)
         bond_type_23 = bond_23.GetBondTypeAsDouble()
         
-        atom_tuple_1 = self.get_atom_tuple(begin_atom)
-        atom_tuple_2 = self.get_atom_tuple(second_atom)
-        atom_tuple_3 = self.get_atom_tuple(end_atom)
+        atom_tuple_1 = self.get_atom_tuple(begin_atom, ring_sizes[0])
+        atom_tuple_2 = self.get_atom_tuple(second_atom, ring_sizes[1])
+        atom_tuple_3 = self.get_atom_tuple(end_atom, ring_sizes[2])
         
         neighborhood_tuple_1 = self.get_neighborhood_tuple(begin_atom, 
                                                             excluded_atoms=[end_atom, second_atom])
@@ -265,6 +297,16 @@ class GeometryExtractor():
         third_atom = mol.GetAtomWithIdx(third_atom_idx)
         end_atom = mol.GetAtomWithIdx(end_atom_idx)
         
+        ring_sizes = [[]] * 4
+        atom_ids = [atom.GetIdx() for atom in [begin_atom, second_atom, third_atom, end_atom]]
+        ring_info = mol.GetRingInfo()
+        ring_atoms = ring_info.AtomRings()
+        for ring in ring_atoms:
+            for i, atom_id in enumerate(atom_ids):
+                if atom_id in ring:
+                    ring_size = len(ring)
+                    ring_sizes[i].append(ring_size)
+        
         bond_12 = mol.GetBondBetweenAtoms(begin_atom_idx, second_atom_idx)
         bond_type_12 = bond_12.GetBondTypeAsDouble()
         bond_23 = mol.GetBondBetweenAtoms(second_atom_idx, third_atom_idx)
@@ -272,10 +314,10 @@ class GeometryExtractor():
         bond_34 = mol.GetBondBetweenAtoms(third_atom_idx, end_atom_idx)
         bond_type_34 = bond_34.GetBondTypeAsDouble()
         
-        atom_tuple_1 = self.get_atom_tuple(begin_atom)
-        atom_tuple_2 = self.get_atom_tuple(second_atom)
-        atom_tuple_3 = self.get_atom_tuple(third_atom)
-        atom_tuple_4 = self.get_atom_tuple(end_atom)
+        atom_tuple_1 = self.get_atom_tuple(begin_atom, ring_sizes[0])
+        atom_tuple_2 = self.get_atom_tuple(second_atom, ring_sizes[1])
+        atom_tuple_3 = self.get_atom_tuple(third_atom, ring_sizes[2])
+        atom_tuple_4 = self.get_atom_tuple(end_atom, ring_sizes[3])
         
         neighborhood_tuple_1 = self.get_neighborhood_tuple(begin_atom, 
                                                             excluded_atoms=[second_atom, third_atom, end_atom])
@@ -341,3 +383,22 @@ class GeometryExtractor():
                         ):
         return GetDihedralDeg(conf, begin_atom_idx, second_atom_idx, 
                               third_atom_idx, end_atom_idx)
+        
+    def get_planar_rings_atom_ids(self,
+                                    mol: Mol,
+                                    authorized_ring_sizes: list[int] = [5, 6]):
+        ring_info = mol.GetRingInfo()
+        ring_atoms = ring_info.AtomRings()
+        returned_rings = []
+        for ring in ring_atoms:
+            if len(ring) in authorized_ring_sizes:
+                planar = True
+                for atom_id in ring:
+                    atom = mol.GetAtomWithIdx(atom_id)
+                    if not atom.GetIsAromatic():
+                        planar = False
+                        break
+                if planar:
+                    returned_rings.append(ring)
+        
+        return returned_rings

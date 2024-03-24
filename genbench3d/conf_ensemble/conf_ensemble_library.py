@@ -460,13 +460,17 @@ class ConfEnsembleLibrary() :
             
     def compute_tfd_matrix(self,
                            name: str) -> List[float]:
-        ce = self[name]
-        mol = ce.mol
-        tfd_matrix = GetTFDMatrix(mol)
-        n_confs = mol.GetNumConformers()
-        tfd_matrix = get_full_matrix_from_tril(tfd_matrix, 
-                                                n=n_confs)
-        tfd_matrix = squareform(tfd_matrix) # to get to triu
+        tfd_matrix = []
+        try:
+            ce = self[name]
+            mol = ce.mol
+            tfd_matrix = GetTFDMatrix(mol)
+            n_confs = mol.GetNumConformers()
+            tfd_matrix = get_full_matrix_from_tril(tfd_matrix, 
+                                                    n=n_confs)
+            tfd_matrix = squareform(tfd_matrix) # to get to triu
+        except Exception as e:
+            logging.warning(e)
         return tfd_matrix
     
     

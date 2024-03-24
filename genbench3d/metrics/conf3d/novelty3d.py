@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 
 from genbench3d.conf_ensemble import (GeneratedCEL,
                                       ConfEnsembleLibrary)
@@ -26,20 +27,23 @@ class Novelty3D(TrainingMetric):
         self.n_novel = 0
         self.novel_conf_ids = defaultdict(list)
         
+        self.n_tested_confs = 0
         for name, ce in cel.items():
             
             ce = cel[name]
-            n_confs = ce.mol.GetNumConformers()
             
-            if not name in training_cel:
-                self.n_novel += n_confs
-            else:
+            # n_confs = ce.mol.GetNumConformers()
+            # if not name in training_cel:
+            #     self.n_novel += n_confs
+            # else:
+            if name in training_cel:
                 mol = ce.mol
                         
                 training_ce = training_cel[name]
                 training_mol = training_ce.mol
                     
                 for conf1 in mol.GetConformers():
+                    self.n_tested_confs += 1
                     conf_id1 = conf1.GetId()
                     tfds = []
                     is_novel = False
@@ -51,18 +55,19 @@ class Novelty3D(TrainingMetric):
                                                         confId1=conf_id1, 
                                                         confId2=conf_id2)
                             tfds.append(tfd)
-                            is_novel = tfd > self.tfd_threshold
-                            if is_novel: 
-                                self.novel_conf_ids[name].append(conf_id1)
-                                self.n_novel += 1
-                                break   
                         except Exception as e:
                             logging.warning(f'Novelty 3D exception: {e}')
+                    if len(tfds) > 0: # When tfds is empty: not novel
+                        is_novel = min(tfds) > self.tfd_threshold
+                    if is_novel: 
+                        self.novel_conf_ids[name].append(conf_id1)
+                        self.n_novel += 1
+                        break
                             
         
-        if self.n_novel == 0:
-            self.value = 0
+        if self.n_tested_confs == 0:
+            self.value = np.nan
         else:
-            self.value = self.n_novel / cel.n_total_confs
+            self.value = self.n_novel / self.n_tested_confs
         
         return self.value

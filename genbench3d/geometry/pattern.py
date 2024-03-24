@@ -10,18 +10,63 @@ AtomicSymbol = str
 AtomicNum = int
 FormalCharge = int
 BondType = float
+RingSizes = tuple[int]
 
 periodic_table = GetPeriodicTable()
+
+class RingSizeTuple(NamedTuple):
+    
+    ring_sizes: RingSizes = ()
+    
+    def __lt__(self, other: 'RingSizeTuple') -> bool:
+        if len(self.ring_sizes) < len(other.ring_sizes):
+            return True
+        elif len(self.ring_sizes) == len(other.ring_sizes):
+            tuple_zip = zip(self.ring_sizes, other.ring_sizes)
+            for rs1, rs2 in tuple_zip:
+                if rs1 < rs2:
+                    return True
+            return False
+        else:
+            return False
+    
+    def __gt__(self, other: 'RingSizeTuple') -> bool:
+        if len(self.ring_sizes) > len(other.ring_sizes):
+            return True
+        elif len(self.ring_sizes) == len(other.ring_sizes):
+            tuple_zip = zip(self.ring_sizes, other.ring_sizes)
+            for rs1, rs2 in tuple_zip:
+                if rs1 > rs2:
+                    return True
+            return False
+        else:
+            return False
+    
+    def __le__(self, other: 'RingSizeTuple') -> bool:
+        return not self > other
+    
+    def __ge__(self, other: 'RingSizeTuple') -> bool:
+        return not self < other
+        
+    def __eq__(self, other: 'RingSizeTuple') -> bool:
+        return self.ring_sizes == other.ring_sizes
+    
+    def __ne__(self, other: 'RingSizeTuple') -> bool:
+        return not self == other
+
 
 class CentralAtomTuple(NamedTuple):
     
     atomic_num: AtomicNum
-    formal_charge: FormalCharge
+    formal_charge: FormalCharge = 0
+    ring_size_tuple: RingSizeTuple = RingSizeTuple()
         
     def __lt__(self, other: 'CentralAtomTuple') -> bool:
         if self.atomic_num < other.atomic_num:
             return True
         elif (self.atomic_num == other.atomic_num) and (self.formal_charge < other.formal_charge):
+            return True
+        elif (self.formal_charge == other.formal_charge) and (self.ring_size_tuple < other.ring_size_tuple):
             return True
         else:
             return False
@@ -30,6 +75,8 @@ class CentralAtomTuple(NamedTuple):
         if self.atomic_num > other.atomic_num:
             return True
         elif (self.atomic_num == other.atomic_num) and (self.formal_charge > other.formal_charge):
+            return True
+        elif (self.formal_charge == other.formal_charge) and (self.ring_size_tuple > other.ring_size_tuple):
             return True
         else:
             return False
@@ -41,7 +88,7 @@ class CentralAtomTuple(NamedTuple):
         return not self < other
         
     def __eq__(self, other: 'CentralAtomTuple') -> bool:
-        return (self.atomic_num == other.atomic_num) and (self.formal_charge == other.formal_charge)
+        return (self.atomic_num == other.atomic_num) and (self.formal_charge == other.formal_charge) and (self.ring_size_tuple == other.ring_size_tuple)
     
     def __ne__(self, other: 'CentralAtomTuple') -> bool:
         return not self == other
@@ -50,7 +97,7 @@ class CentralAtomTuple(NamedTuple):
 class NeighborAtomTuple(NamedTuple):
     
     atomic_num: AtomicNum
-    bond_type: BondType
+    bond_type: BondType = 1.0
         
     def __lt__(self, other: 'NeighborAtomTuple') -> bool:
         if self.atomic_num < other.atomic_num:
@@ -82,7 +129,7 @@ class NeighborAtomTuple(NamedTuple):
     
 class NeighborhoodTuple(NamedTuple):
     
-    neighbor_tuples: tuple[NeighborAtomTuple, ...]
+    neighbor_tuples: tuple[NeighborAtomTuple, ...] = ()
         
     def __lt__(self, other: 'NeighborhoodTuple') -> bool:
         if len(self.neighbor_tuples) < len(other.neighbor_tuples):
@@ -191,11 +238,11 @@ def get_charge_int(charge: str) -> int:
             raise Exception('Wrong sign')
     
 def get_bond_type_string(bond_type: float) -> str:
-    if bond_type == 1:
+    if bond_type == 1.0:
         return '-'
-    elif bond_type == 2:
+    elif bond_type == 2.0:
         return '='
-    elif bond_type == 3:
+    elif bond_type == 3.0:
         return '#'
     else :
         return '~'
@@ -215,30 +262,47 @@ def get_neighbor_string(neighbor: NeighborAtomTuple) -> str:
     bond_type_str = get_bond_type_string(neighbor.bond_type)
     return bond_type_str + symbol
 
+def get_ring_size_string(ring_size_tuple: RingSizeTuple):
+    ring_sizes = ring_size_tuple.ring_sizes
+    if len(ring_sizes) == 0:
+        return ''
+    else:
+        return '{' + ','.join([str(rs) for rs in ring_sizes]) + '}'
+
+def get_ring_size_tuple_from_string(string: str):
+    if (string is None) or (string == ''):
+        return RingSizeTuple()
+    else:
+        assert string.startswith('{') and string.endswith('}')
+        string = string[1:-1]
+        ring_sizes = string.split(',')
+        return RingSizeTuple(ring_sizes=tuple([int(rs) for rs in ring_sizes]))
 
 def get_central_atom_string(atom_tuple: CentralAtomTuple, 
                             neighborhood_tuple: NeighborAtomTuple):
     symbol = periodic_table.GetElementSymbol(atom_tuple.atomic_num)
     charge = get_charge_string(atom_tuple.formal_charge)
+    ring_sizes = get_ring_size_string(atom_tuple.ring_size_tuple)
     neighbor_strings = [get_neighbor_string(neighbor)
                             for neighbor in neighborhood_tuple.neighbor_tuples]
     neighbors_string = f"({','.join(neighbor_strings)})"
-    return symbol + charge + neighbors_string
+    return symbol + charge + ring_sizes + neighbors_string
 
 atom_symbol_regex = r"(\w+)"
-charge_regex = r"(\[.+\])?"
+charge_regex = r"(\[[+-]\d+\])?"
+ring_regex = r"(\{[\d,]+\})?"
 neighborhood_regex = r"(\(.*\))"
-bond_type_regex = r"(-|=|\#|~)"
+bond_type_regex = r"([-=\#~])"
 
-bond_regex = bond_type_regex.join([atom_symbol_regex 
+def join_regex(i: int):
+    return bond_type_regex.join([atom_symbol_regex 
                                     + charge_regex 
-                                    + neighborhood_regex] * 2)
-angle_regex = bond_type_regex.join([atom_symbol_regex 
-                                    + charge_regex 
-                                    + neighborhood_regex] * 3)
-torsion_regex = bond_type_regex.join([atom_symbol_regex 
-                                      + charge_regex 
-                                      + neighborhood_regex] * 4)
+                                    + ring_regex
+                                    + neighborhood_regex] * i)
+
+bond_regex = join_regex(2)
+angle_regex = join_regex(3)
+torsion_regex = join_regex(4)
 
 class BondPattern(NamedTuple):
     
@@ -279,24 +343,30 @@ class BondPattern(NamedTuple):
         group_iter = iter(results.groups())
         atom_symbol_1 = next(group_iter)
         charge_1 = next(group_iter)
+        ring_sizes_1 = next(group_iter)
         neighbors_1 = next(group_iter)
         bond_type_12 = next(group_iter)
         atom_symbol_2 = next(group_iter)
         charge_2 = next(group_iter)
+        ring_sizes_2 = next(group_iter)
         neighbors_2 = next(group_iter)
         
         atomic_num_1 = periodic_table.GetAtomicNumber(atom_symbol_1)
         formal_charge_1 = get_charge_int(charge_1)
+        ring_size_tuple_1 = get_ring_size_tuple_from_string(ring_sizes_1)
         central_atom_tuple_1 = CentralAtomTuple(atomic_num=atomic_num_1,
-                                                formal_charge=formal_charge_1)
+                                                formal_charge=formal_charge_1,
+                                                ring_size_tuple=ring_size_tuple_1)
         neighborhood_tuple_1 = NeighborhoodTuple.from_string(neighbors_1)
         
         bond_type_12 = get_bond_type_float(bond_type_12)
         
         atomic_num_2 = periodic_table.GetAtomicNumber(atom_symbol_2)
         formal_charge_2 = get_charge_int(charge_2)
+        ring_size_tuple_2 = get_ring_size_tuple_from_string(ring_sizes_2)
         central_atom_tuple_2 = CentralAtomTuple(atomic_num=atomic_num_2,
-                                                formal_charge=formal_charge_2)
+                                                formal_charge=formal_charge_2,
+                                                ring_size_tuple=ring_size_tuple_2)
         neighborhood_tuple_2 = NeighborhoodTuple.from_string(neighbors_2)
         
         return cls(central_atom_tuple_1, 
@@ -368,36 +438,45 @@ class AnglePattern(NamedTuple):
         group_iter = iter(results.groups())
         atom_symbol_1 = next(group_iter)
         charge_1 = next(group_iter)
+        ring_sizes_1 = next(group_iter)
         neighbors_1 = next(group_iter)
         bond_type_12 = next(group_iter)
         atom_symbol_2 = next(group_iter)
         charge_2 = next(group_iter)
+        ring_sizes_2 = next(group_iter)
         neighbors_2 = next(group_iter)
         bond_type_23 = next(group_iter)
         atom_symbol_3 = next(group_iter)
         charge_3 = next(group_iter)
+        ring_sizes_3 = next(group_iter)
         neighbors_3 = next(group_iter)
         
         atomic_num_1 = periodic_table.GetAtomicNumber(atom_symbol_1)
         formal_charge_1 = get_charge_int(charge_1)
+        ring_size_tuple_1 = get_ring_size_tuple_from_string(ring_sizes_1)
         central_atom_tuple_1 = CentralAtomTuple(atomic_num=atomic_num_1,
-                                                formal_charge=formal_charge_1)
+                                                formal_charge=formal_charge_1,
+                                                ring_size_tuple=ring_size_tuple_1)
         neighborhood_tuple_1 = NeighborhoodTuple.from_string(neighbors_1)
         
         bond_type_12 = get_bond_type_float(bond_type_12)
         
         atomic_num_2 = periodic_table.GetAtomicNumber(atom_symbol_2)
         formal_charge_2 = get_charge_int(charge_2)
+        ring_size_tuple_2 = get_ring_size_tuple_from_string(ring_sizes_2)
         central_atom_tuple_2 = CentralAtomTuple(atomic_num=atomic_num_2,
-                                                formal_charge=formal_charge_2)
+                                                formal_charge=formal_charge_2,
+                                                ring_size_tuple=ring_size_tuple_2)
         neighborhood_tuple_2 = NeighborhoodTuple.from_string(neighbors_2)
         
         bond_type_23 = get_bond_type_float(bond_type_23)
         
         atomic_num_3 = periodic_table.GetAtomicNumber(atom_symbol_3)
         formal_charge_3 = get_charge_int(charge_3)
+        ring_size_tuple_3 = get_ring_size_tuple_from_string(ring_sizes_3)
         central_atom_tuple_3 = CentralAtomTuple(atomic_num=atomic_num_3,
-                                                formal_charge=formal_charge_3)
+                                                formal_charge=formal_charge_3,
+                                                ring_size_tuple=ring_size_tuple_3)
         neighborhood_tuple_3 = NeighborhoodTuple.from_string(neighbors_3)
         
         return cls(central_atom_tuple_1, 
@@ -482,48 +561,60 @@ class TorsionPattern(NamedTuple):
         group_iter = iter(results.groups())
         atom_symbol_1 = next(group_iter)
         charge_1 = next(group_iter)
+        ring_sizes_1 = next(group_iter)
         neighbors_1 = next(group_iter)
         bond_type_12 = next(group_iter)
         atom_symbol_2 = next(group_iter)
         charge_2 = next(group_iter)
+        ring_sizes_2 = next(group_iter)
         neighbors_2 = next(group_iter)
         bond_type_23 = next(group_iter)
         atom_symbol_3 = next(group_iter)
         charge_3 = next(group_iter)
+        ring_sizes_3 = next(group_iter)
         neighbors_3 = next(group_iter)
         bond_type_34 = next(group_iter)
         atom_symbol_4 = next(group_iter)
         charge_4 = next(group_iter)
+        ring_sizes_4 = next(group_iter)
         neighbors_4 = next(group_iter)
         
         atomic_num_1 = periodic_table.GetAtomicNumber(atom_symbol_1)
         formal_charge_1 = get_charge_int(charge_1)
+        ring_size_tuple_1 = get_ring_size_tuple_from_string(ring_sizes_1)
         central_atom_tuple_1 = CentralAtomTuple(atomic_num=atomic_num_1,
-                                                formal_charge=formal_charge_1)
+                                                formal_charge=formal_charge_1,
+                                                ring_size_tuple=ring_size_tuple_1)
         neighborhood_tuple_1 = NeighborhoodTuple.from_string(neighbors_1)
         
         bond_type_12 = get_bond_type_float(bond_type_12)
         
         atomic_num_2 = periodic_table.GetAtomicNumber(atom_symbol_2)
         formal_charge_2 = get_charge_int(charge_2)
+        ring_size_tuple_2 = get_ring_size_tuple_from_string(ring_sizes_2)
         central_atom_tuple_2 = CentralAtomTuple(atomic_num=atomic_num_2,
-                                                formal_charge=formal_charge_2)
+                                                formal_charge=formal_charge_2,
+                                                ring_size_tuple=ring_size_tuple_2)
         neighborhood_tuple_2 = NeighborhoodTuple.from_string(neighbors_2)
         
         bond_type_23 = get_bond_type_float(bond_type_23)
         
         atomic_num_3 = periodic_table.GetAtomicNumber(atom_symbol_3)
         formal_charge_3 = get_charge_int(charge_3)
+        ring_size_tuple_3 = get_ring_size_tuple_from_string(ring_sizes_3)
         central_atom_tuple_3 = CentralAtomTuple(atomic_num=atomic_num_3,
-                                                formal_charge=formal_charge_3)
+                                                formal_charge=formal_charge_3,
+                                                ring_size_tuple=ring_size_tuple_3)
         neighborhood_tuple_3 = NeighborhoodTuple.from_string(neighbors_3)
         
         bond_type_34 = get_bond_type_float(bond_type_34)
         
         atomic_num_4 = periodic_table.GetAtomicNumber(atom_symbol_4)
         formal_charge_4 = get_charge_int(charge_4)
+        ring_size_tuple_4 = get_ring_size_tuple_from_string(ring_sizes_4)
         central_atom_tuple_4 = CentralAtomTuple(atomic_num=atomic_num_4,
-                                                formal_charge=formal_charge_4)
+                                                formal_charge=formal_charge_4,
+                                                ring_size_tuple=ring_size_tuple_4)
         neighborhood_tuple_4 = NeighborhoodTuple.from_string(neighbors_4)
         
         return cls(central_atom_tuple_1, 

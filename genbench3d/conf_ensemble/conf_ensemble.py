@@ -103,6 +103,7 @@ class ConfEnsemble() :
                 mcs_mol = Chem.MolFromSmarts(mcs.smartsString)
                 match = standard_mol.GetSubstructMatch(mcs_mol)
                 if not len(match) == self._mol.GetNumAtoms() :
+                    import pdb;pdb.set_trace()
                     raise Exception('No match found between template and actual mol')
             
             self_match = self._mol.GetSubstructMatch(mcs_mol)

@@ -9,7 +9,7 @@ from MDAnalysis import Universe
 class Pocket():
     
     def __init__(self,
-                 protein: Protein,
+                 pdb_filepath: str,
                  native_ligand: Mol,
                  distance_from_ligand: float = 5, # Angstrom
                  pocket_filepath: str = None,
@@ -20,19 +20,20 @@ class Pocket():
         This code would need to be adapted if working with new pocket 
         that don't have known ligand
         """
-        self.protein = protein
+        self.pdb_filepath = pdb_filepath
         self.native_ligand = native_ligand
         self.distance_from_ligand = distance_from_ligand
         self.pocket_filepath = pocket_filepath
         
-        self.mol = self.extract_pocket_mol(universe=self.protein.universe,
+        self.mol = self.extract_pocket_mol(protein_filepath=pdb_filepath,
                                            pocket_filepath=pocket_filepath)
         
         
     def extract_pocket_mol(self,
-                           universe: Universe,
+                           protein_filepath: str,
                             ligand_resname: str = 'UNL',
                             pocket_filepath: str = None):
+        universe = mda.Universe(protein_filepath)
         ligand = mda.Universe(self.native_ligand)
         ligand.add_TopologyAttr('resname', [ligand_resname])
         

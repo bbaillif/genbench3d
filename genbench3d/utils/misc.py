@@ -63,3 +63,41 @@ def ccdc_mol_to_rdkit_mol(ccdc_mol: Molecule) -> Mol:
     
     return Chem.MolFromMol2Block(mol2block, 
                                     removeHs=False)
+    
+def shift_torsion_values(values: list[float],
+                        x: float):
+    '''
+    shift a distribution of degrees such that the current x becomes the -180.
+    '''
+    assert (x >= -180) and (x <= 180)
+    values = np.array(values)
+    positive_values = values + 180 # -180 
+    positive_shift = x + 180
+    shifted_values = positive_values - positive_shift
+    new_values = shifted_values % 360
+    centred_new_values = new_values - 180
+    return centred_new_values
+
+
+def unshift_torsion_values(values: list[float],
+                            x: float):
+    '''
+    shift a distribution of degrees such that the current x becomes the 0.
+    '''
+    return shift_torsion_values(values, x=-x)
+        
+        
+def shift_abs_torsion_values(values: list[float],
+                            x: float):
+    '''
+    shift a distribution of degrees such that the current x becomes the 0.
+    '''
+    return (values - x) % 180
+    
+    
+def unshift_abs_torsion_values(values: list[float],
+                                x: float):
+    '''
+    reverse shift: current 0 of a degree distribution becomes the new x
+    '''
+    return (values + x) % 180

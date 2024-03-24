@@ -16,7 +16,8 @@ from .activity import (VinaScorer,
                        VinaScore,
                        GlideScore,
                        GoldPLPScore,
-                       IFPSimilarity,
-                       ESPSIM)
+                    #    IFPSimilarity,
+                    #    ESPSIM
+                       )
 from .pocket import (StericClash,
                      DistanceToNativeCentroid)
