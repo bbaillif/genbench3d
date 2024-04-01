@@ -50,10 +50,10 @@ minimized_path = MINIMIZED_DIRPATH
 if not os.path.exists(minimized_path):
     os.mkdir(minimized_path)
 
-# train_crossdocked = CrossDocked(subset='train')
-# train_ligands = train_crossdocked.get_ligands()
-# training_mols = [Chem.AddHs(mol, addCoords=True) for mol in train_ligands]
-# training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
+train_crossdocked = CrossDocked(subset='train')
+train_ligands = train_crossdocked.get_ligands()
+training_mols = [Chem.AddHs(mol, addCoords=True) for mol in train_ligands]
+training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 
 test_crossdocked = CrossDocked(subset='test')
 ligand_filenames = test_crossdocked.get_ligand_filenames()
@@ -105,7 +105,7 @@ try:
                 sbgenbench3D.setup_vina(vina_protein)
                 sbgenbench3D.setup_glide(glide_protein)
                 sbgenbench3D.setup_gold_plp(vina_protein)
-                # sbgenbench3D.set_training_cel(training_cel)
+                sbgenbench3D.set_training_cel(training_cel)
             
                 for model in tqdm(models):
                     

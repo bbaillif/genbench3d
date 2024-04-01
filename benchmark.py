@@ -30,21 +30,21 @@ train_crossdocked = CrossDocked(subset='train')
 train_ligands = train_crossdocked.get_ligands()
 training_mols = train_ligands
 
-# model_name = 'CrossDocked'
-# genbench3D = GenBench3D()
-# results = genbench3D.get_results_for_mol_list(mols=training_mols)
-# with open(f'results/results_{model_name}.p', 'wb') as f:
-#     pickle.dump(results, f)
+model_name = 'CrossDocked'
+genbench3D = GenBench3D()
+results = genbench3D.get_results_for_mol_list(mols=training_mols)
+with open(f'results/results_{model_name}.p', 'wb') as f:
+    pickle.dump(results, f)
 
-# csd_drug = CSDDrug()
-# csd_drug_ligands = [mol for mol in csd_drug]
-# model_name = 'CSDDrug'
-# genbench3D = GenBench3D()
-# results = genbench3D.get_results_for_mol_list(mols=csd_drug_ligands)
-# with open(f'results/results_{model_name}.p', 'wb') as f:
-#     pickle.dump(results, f)
+csd_drug = CSDDrug()
+csd_drug_ligands = [mol for mol in csd_drug]
+model_name = 'CSDDrug'
+genbench3D = GenBench3D()
+results = genbench3D.get_results_for_mol_list(mols=csd_drug_ligands)
+with open(f'results/results_{model_name}.p', 'wb') as f:
+    pickle.dump(results, f)
 
-# training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
+training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 
 training_mols_h = [Chem.AddHs(mol) for mol in training_mols]
 training_cel_h = ConfEnsembleLibrary.from_mol_list(training_mols_h)
@@ -61,8 +61,7 @@ models: list[SBModel] = [
                         ResGen()
                         ]
 
-# minimizes = [False, True]
-minimizes = [True]
+minimizes = [False, True]
 for minimize in minimizes:
     for model in tqdm(models):
         logging.info(model.name)
@@ -89,8 +88,8 @@ for minimize in minimizes:
         genbench3D = GenBench3D()
         if minimize:
             genbench3D.set_training_cel(training_cel_h)
-        # else:
-            # genbench3D.set_training_cel(training_cel)
+        else:
+            genbench3D.set_training_cel(training_cel)
         results = genbench3D.get_results_for_mol_list(all_gen_mols,
                                                       n_total_mols=10000)
         
