@@ -62,7 +62,6 @@ class Novelty3D(TrainingMetric):
                     if is_novel: 
                         self.novel_conf_ids[name].append(conf_id1)
                         self.n_novel += 1
-                        break
                             
         
         if self.n_tested_confs == 0:

@@ -82,7 +82,7 @@ class GenBench3D():
         #                                          reference_geometry=self.crossdocked_geometry)
         # self.conf_metrics.append(self.validity3D_crossdocked)
         
-        # self.conf_metrics.append(StrainEnergy())
+        self.conf_metrics.append(StrainEnergy())
 
         self.valid_conf_metrics: List[Metric] = [Uniqueness3D(self.tfd_threshold),
                                                  Diversity3D()]
