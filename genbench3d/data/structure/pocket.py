@@ -2,8 +2,6 @@ import logging
 import MDAnalysis as mda
 
 from rdkit.Chem import Mol
-from .protein import Protein
-from MDAnalysis import Universe
 
 
 class Pocket():
@@ -11,7 +9,7 @@ class Pocket():
     def __init__(self,
                  pdb_filepath: str,
                  native_ligand: Mol,
-                 distance_from_ligand: float = 5, # Angstrom
+                 distance_from_ligand: float, # Angstrom
                  pocket_filepath: str = None,
                  ) -> None:
         """

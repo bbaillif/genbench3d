@@ -73,7 +73,6 @@ if PDBBIND_CORE_URL is None:
                     go to http://www.pdbbind.org.cn/casf.php, 
                     and find the links to the core set""")
     
-
 PDBBIND_DIRNAME = 'PDBbind'
 PDBBIND_DIRPATH = os.path.join(ROOT_DIRPATH, 
                                PDBBIND_DIRNAME)

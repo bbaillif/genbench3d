@@ -4,12 +4,11 @@ import numpy as np
 from genbench3d.conf_ensemble import GeneratedCEL
 from genbench3d.metrics import Metric
 from scipy.cluster.hierarchy import linkage, fcluster
-from genbench3d.params import DEFAULT_TFD_THRESHOLD
 
 class Uniqueness3D(Metric):
     
     def __init__(self,
-                 tfd_threshold: float = DEFAULT_TFD_THRESHOLD,
+                 tfd_threshold: float,
                  name: str = 'Uniqueness3D') -> None:
         super().__init__(name)
         self.tfd_threshold = tfd_threshold

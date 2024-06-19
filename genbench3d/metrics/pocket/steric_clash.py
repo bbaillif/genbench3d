@@ -2,24 +2,23 @@ from ..metric import Metric
 from genbench3d.conf_ensemble import GeneratedCEL
 from genbench3d.data.structure import Pocket
 from rdkit import Chem
-from genbench3d.geometry import GeometryExtractor
-from genbench3d.geometry import ClashChecker
-from rdkit.Chem import Mol
+from genbench3d.geometry import (GeometryExtractor, 
+                                 ClashChecker)
 from collections import defaultdict
-from genbench3d.params import CLASH_SAFETY_RATIO, CONSIDER_HYDROGENS
 
 class StericClash(Metric):
     
     def __init__(self, 
                  pocket: Pocket,
+                 clash_safety_ratio: float,
+                 consider_hs: bool,
                  name: str = 'Steric clash',
-                 clash_safety_ratio: float = CLASH_SAFETY_RATIO,
-                 consider_hs: bool = CONSIDER_HYDROGENS
                  ) -> None:
         super().__init__(name)
         self.pocket = pocket
         self.geometry_extractor = GeometryExtractor()
-        self.clash_checker = ClashChecker(clash_safety_ratio)
+        self.clash_checker = ClashChecker(clash_safety_ratio,
+                                          consider_hs)
         self.clashes = None
         self.valid_pldist_conf_ids = None
         

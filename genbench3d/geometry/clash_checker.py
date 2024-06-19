@@ -2,7 +2,6 @@ from rdkit import Chem
 from rdkit.Chem import Conformer, Mol
 from genbench3d.geometry import GeometryExtractor
 from genbench3d.data.structure import Pocket
-from genbench3d.params import CLASH_SAFETY_RATIO, CONSIDER_HYDROGENS
 from typing import NamedTuple
 
 class Clash(NamedTuple):
@@ -17,8 +16,8 @@ class Clash(NamedTuple):
 class ClashChecker():
     
     def __init__(self,
-                 safety_ratio: float = CLASH_SAFETY_RATIO,
-                 consider_hs: bool = CONSIDER_HYDROGENS) -> None:
+                 safety_ratio: float,
+                 consider_hs: bool) -> None:
         self.safety_ratio = safety_ratio
         self.consider_hs = consider_hs
         

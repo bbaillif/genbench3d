@@ -14,9 +14,6 @@ from rdkit.Chem import Mol
 from tqdm import tqdm
 from .conf_ensemble import ConfEnsemble
 from ..utils.molconfviewer import MolConfViewer
-from genbench3d.params import (BIO_CONF_DIRNAME,
-                    GEN_CONF_DIRNAME,
-                    DATA_DIRPATH)
 from copy import deepcopy
 from rdkit.Chem.rdMolDescriptors import GetMorganFingerprintAsBitVect
 from rdkit.DataStructs.cDataStructs import ExplicitBitVect
@@ -25,6 +22,10 @@ from rdkit.Chem.TorsionFingerprints import GetTFDMatrix
 from scipy.spatial.distance import squareform
 from genbench3d.utils import get_full_matrix_from_tril
 
+# These are legacy behaviour from previous work when CEL needed to be saved for faster processing
+BIO_CONF_DIRNAME = 'generated_molecules'
+GEN_CONF_DIRNAME = 'generated_molecules'
+DATA_DIRPATH = '.'
 
 class ConfEnsembleLibrary() :
     """

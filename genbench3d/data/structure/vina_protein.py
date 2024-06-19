@@ -2,7 +2,6 @@ import logging
 import os
 
 from MDAnalysis import Universe
-from genbench3d.params import PREPARE_RECEPTOR_BIN_PATH
 from openbabel import pybel
 from openbabel.pybel import Molecule
 from .protein import Protein
@@ -11,9 +10,10 @@ from .protein import Protein
 class VinaProtein(Protein):
     
     def __init__(self, 
-                 pdb_filepath: str) -> None:
+                 pdb_filepath: str,
+                 prepare_receptor_bin_path: str) -> None:
         super().__init__(pdb_filepath)
-        
+        self.prepare_receptor_bin_path = prepare_receptor_bin_path
         self._pdbqt_filepath = pdb_filepath.replace('.pdb', 
                                                    '.pdbqt')
         
@@ -75,7 +75,7 @@ class VinaProtein(Protein):
         hydrogens
         """
         logging.info(f'Preparing protein from {input_pdb_filepath} to {output_pdbqt_filepath}')
-        arg_list = [PREPARE_RECEPTOR_BIN_PATH,
+        arg_list = [self.prepare_receptor_bin_path,
                     f'-r {input_pdb_filepath}',
                     f'-o {output_pdbqt_filepath}']
         cmd = ' '.join(arg_list)

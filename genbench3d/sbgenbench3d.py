@@ -6,8 +6,6 @@ from .metrics import (VinaScorer,
                       VinaScore,
                       GlideScore,
                       GoldPLPScore,
-                    #   IFPSimilarity,
-                    #   ESPSIM,
                       StericClash,
                       DistanceToNativeCentroid)
 from .genbench3d import GenBench3D
@@ -18,44 +16,45 @@ from .data.structure import (VinaProtein,
 from genbench3d.conf_ensemble import GeneratedCEL
 from genbench3d.metrics import Metric
 from typing import Any
-from genbench3d.params import ADD_MINIMIZED_DOCKING_SCORES, DEFAULT_TFD_THRESHOLD
+from genbench3d.geometry import ReferenceGeometry
 
 class SBGenBench3D(GenBench3D):
     
     def __init__(self, 
+                 reference_geometry: ReferenceGeometry,
+                 config: dict,
                  pocket: Pocket,
-                 native_ligand: Mol,
-                 root: str = 'genbench3d_results/', 
-                 show_plots: bool = False, 
-                 tfd_threshold: float = DEFAULT_TFD_THRESHOLD) -> None:
-        super().__init__(root, 
-                         show_plots, 
-                         tfd_threshold)
+                 native_ligand: Mol,) -> None:
+        super().__init__(reference_geometry,
+                         config)
         
         self.pocket = pocket
         self.native_ligand = native_ligand # should have Hs
         
-        # self.ifp_similarity = IFPSimilarity(universe=self.pocket.protein.universe,
-        #                                     native_ligand=self.native_ligand)
-        # self.espsim = ESPSIM(native_ligand=self.native_ligand)
-        self.steric_clash = StericClash(pocket)
+        self.steric_clash = StericClash(pocket,
+                                        clash_safety_ratio=config['steric_clash_safety_ratio'],
+                                        consider_hs=config['consider_hs'])
         self.distance_to_centroid = DistanceToNativeCentroid(pocket)
         self.sb_metrics: list[Metric] = [
                                         self.steric_clash,
                                         self.distance_to_centroid
-                                        # self.ifp_similarity,
-                                        # self.espsim,
                                         ]
         
         
     def setup_vina(self,
                    vina_protein: VinaProtein,
-                   add_minimized: bool = ADD_MINIMIZED_DOCKING_SCORES) -> None:
+                   vina_config: dict,
+                   add_minimized: bool,
+                   ) -> None:
         self.vina_protein = vina_protein
         
         # Vina score
         self._vina_scorer = VinaScorer.from_ligand(ligand=self.native_ligand,
-                                                   vina_protein=vina_protein)
+                                                   vina_protein=vina_protein,
+                                                   sf_name=vina_config['scoring_function'],
+                                                   n_cpus=vina_config['n_cpus'],
+                                                   seed=vina_config['seed'],
+                                                   size_border=vina_config['size_border'])
         self.native_ligand_vina_score = self._vina_scorer.score_mol(self.native_ligand)[0]
         self.vina_score = VinaScore(self._vina_scorer)
         self.sb_metrics.append(self.vina_score)
@@ -71,18 +70,21 @@ class SBGenBench3D(GenBench3D):
         
     def setup_glide(self,
                     glide_protein: GlideProtein,
-                    add_minimized: bool = ADD_MINIMIZED_DOCKING_SCORES) -> None:
+                    glide_path: str,
+                    add_minimized: bool) -> None:
         self.glide_protein = glide_protein
         
         # Glide score
         native_cel = ConfEnsembleLibrary.from_mol_list([self.native_ligand])
-        self.glide_score = GlideScore(glide_protein)
+        self.glide_score = GlideScore(glide_protein,
+                                      glide_path=glide_path)
         self.native_ligand_glide_score = self.glide_score.get(native_cel)[0]
         self.sb_metrics.append(self.glide_score)
         
         if add_minimized:
             # Minimized Glide score
             self.min_glide_score = GlideScore(glide_protein, 
+                                              glide_path=glide_path,
                                             mininplace=True, 
                                             name='Minimized Glide score')
             self.native_ligand_min_glide_score = self.min_glide_score.get(native_cel)[0]

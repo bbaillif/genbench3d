@@ -1,11 +1,8 @@
-import numpy as np
 import logging
-import time
 
 from genbench3d.conf_ensemble import GeneratedCEL
 from ..metric import Metric
 from .vina_scorer import VinaScorer
-from genbench3d.data.structure import Protein
 
 class VinaScore(Metric):
     

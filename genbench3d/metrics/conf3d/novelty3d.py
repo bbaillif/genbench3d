@@ -6,12 +6,11 @@ from genbench3d.conf_ensemble import (GeneratedCEL,
 from genbench3d.metrics import TrainingMetric
 from collections import defaultdict
 from rdkit.Chem.TorsionFingerprints import GetTFDBetweenMolecules
-from genbench3d.params import DEFAULT_TFD_THRESHOLD
 
 class Novelty3D(TrainingMetric):
     
     def __init__(self,
-                 tfd_threshold: float = DEFAULT_TFD_THRESHOLD,
+                 tfd_threshold: float,
                  name: str = 'Novelty3D') -> None:
         super().__init__(name)
         self.tfd_threshold = tfd_threshold

@@ -1,4 +1,3 @@
-import os
 import numpy as np
 
 from typing import List, Union
@@ -6,32 +5,21 @@ from rdkit import Chem
 from rdkit.Chem import Mol
 from meeko import (MoleculePreparation,
                    PDBQTWriterLegacy)
-# from params import (VINA_BIN_FILEPATH, 
-#                     VINA_URL, 
-#                     VINA_DIRPATH)
 from vina import Vina
 from MDAnalysis import AtomGroup
 from genbench3d.data.structure import VinaProtein
-
-DEFAULT_SF_NAME = 'vina'
-DEFAULT_PREPARATION_METHOD = 'adfr'
-DEFAULT_SIZE_BORDER = 35 # Angstrom
-DEFAULT_N_CPUS = 4
-SEED = 2023
 
 class VinaScorer():
     
     def __init__(self,
                  vina_protein: VinaProtein,
-                 sf_name: str = DEFAULT_SF_NAME,
-                 preparation_method: str = DEFAULT_PREPARATION_METHOD,
-                 n_cpus: int = DEFAULT_N_CPUS,
-                 seed: int = SEED,
-                 size_border: float = DEFAULT_SIZE_BORDER) -> None:
+                 sf_name: str,
+                 n_cpus: int,
+                 seed: int,
+                 size_border: float) -> None:
         
         self.vina_protein = vina_protein
         self.sf_name = sf_name
-        self.preparation_method = preparation_method
         self.n_cpus = n_cpus
         self.seed = seed
         self.size_border = size_border
@@ -61,14 +49,12 @@ class VinaScorer():
     def from_ligand(cls,
                     ligand: Union[Mol, AtomGroup],
                     vina_protein: VinaProtein,
-                    sf_name: str = DEFAULT_SF_NAME,
-                    preparation_method: str = DEFAULT_PREPARATION_METHOD,
-                    n_cpus: int = DEFAULT_N_CPUS,
-                    seed: int = SEED,
-                    size_border: float = DEFAULT_SIZE_BORDER) -> 'VinaScorer':
+                    sf_name: str,
+                    n_cpus: int,
+                    seed: int,
+                    size_border: float) -> 'VinaScorer':
         vina_scorer = cls(vina_protein,
                          sf_name,
-                         preparation_method,
                          n_cpus,
                          seed,
                          size_border)
@@ -81,14 +67,12 @@ class VinaScorer():
                                ligand_name: str,
                                 chain: str, 
                                 vina_protein: VinaProtein,
-                                sf_name: str = DEFAULT_SF_NAME,
-                                preparation_method: str = DEFAULT_PREPARATION_METHOD,
-                                n_cpus: int = DEFAULT_N_CPUS,
-                                seed: int = SEED,
-                                size_border: float = DEFAULT_SIZE_BORDER) -> 'VinaScorer':
+                                sf_name: str,
+                                n_cpus: int,
+                                seed: int,
+                                size_border: float) -> 'VinaScorer':
         vina_scorer = cls(vina_protein,
                          sf_name,
-                         preparation_method,
                          n_cpus,
                          seed,
                          size_border)
@@ -103,7 +87,7 @@ class VinaScorer():
         
     def set_box_from_ligand(self,
                             ligand: Union[Mol, AtomGroup],
-                            size_border: float = DEFAULT_SIZE_BORDER):
+                            size_border: float):
         
         # with open(self.box_filepath, 'r') as f:
         #     lines: List[str] = [line.strip() for line in f.readlines()]

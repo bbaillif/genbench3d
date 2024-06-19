@@ -1,41 +1,28 @@
 import numpy as np
 import pandas as pd
-import time
 
 from tqdm import tqdm
 from typing import Tuple, List, Dict, Any
 from genbench3d.geometry import (GeometryExtractor, 
-                                 ReferenceGeometry, 
-                                 LigBoundConfGeometry,
-                                 CSDGeometry,
-                                 CSDDrugGeometry)
+                                 ReferenceGeometry)
 from rdkit import Chem
 from rdkit.Chem import Mol, Conformer
 from ..metric import Metric
 from genbench3d.conf_ensemble import GeneratedCEL
-from genbench3d.utils import rdkit_conf_to_ccdc_mol
-from ccdc.conformer import GeometryAnalyser
-from ccdc.io import Molecule
 from scipy.stats.mstats import gmean
 from genbench3d.geometry import ClashChecker
-from genbench3d.params import (Q_VALUE_THRESHOLD, 
-                               CLASH_SAFETY_RATIO, 
-                               MAX_RING_PLANE_DISTANCE,
-                               CONSIDER_HYDROGENS,
-                               INCLUDE_TORSIONS)
 from collections import defaultdict
 
 class Validity3D(Metric):
     
     def __init__(self,
                  reference_geometry: ReferenceGeometry,
+                 q_value_threshold: float,
+                 steric_clash_safety_ratio: float,
+                 maximum_ring_plane_distance: float,
+                 include_torsions: float,
+                 consider_hydrogens: float,
                  name: str = 'Validity3D',
-                 backend: str = 'reference',
-                 q_value_threshold: float = Q_VALUE_THRESHOLD,
-                 clash_safety_ratio: float = CLASH_SAFETY_RATIO,
-                 max_ring_plane_distance: float = MAX_RING_PLANE_DISTANCE,
-                 include_torsions: float = INCLUDE_TORSIONS,
-                 consider_hs: float = CONSIDER_HYDROGENS,
                  ) -> None:
         super().__init__(name)
         self.geometry_extractor = GeometryExtractor()
@@ -44,16 +31,12 @@ class Validity3D(Metric):
         else:
             self.reference_geometry = reference_geometry
         
-        assert backend in ['reference', 'CSD']
-        self.backend = backend
-        if backend == 'CSD': # CSD backend is slower, but works on the whole CSD version installed locally
-            self.geometry_analyser = GeometryAnalyser()
         self.q_value_threshold = q_value_threshold
-        self.max_ring_plane_distance = max_ring_plane_distance
+        self.max_ring_plane_distance = maximum_ring_plane_distance
         self.include_torsions = include_torsions
-        self.consider_hs = consider_hs
+        self.consider_hs = consider_hydrogens
         
-        self.clash_checker = ClashChecker(clash_safety_ratio,
+        self.clash_checker = ClashChecker(safety_ratio=steric_clash_safety_ratio,
                                           consider_hs=self.consider_hs)
         
         self.valid_conf_ids = {}
@@ -89,78 +72,26 @@ class Validity3D(Metric):
         assert name is not None, 'Name must be given'
         assert name not in self.valid_conf_ids, 'Name already tested'
         
-        if self.backend == 'reference':
+        valid_bond_conf_ids, bond_validities, new_bond_patterns = self.analyze_bonds(mol)
+        valid_conf_ids = set(valid_bond_conf_ids)
+        validities = list(bond_validities)
+        new_patterns = [('bond', p) for p in new_bond_patterns]
         
-            valid_bond_conf_ids, bond_validities, new_bond_patterns = self.analyze_bonds(mol)
-            valid_conf_ids = set(valid_bond_conf_ids)
-            validities = list(bond_validities)
-            new_patterns = [('bond', p) for p in new_bond_patterns]
-            
-            valid_angle_conf_ids, angle_validities, new_angle_patterns = self.analyze_angles(mol)
-            valid_conf_ids = valid_conf_ids.intersection(valid_angle_conf_ids)
-            validities.extend(angle_validities)
-            new_patterns.extend([('angle', p) for p in new_angle_patterns])
-            
-            if analyze_torsions: # this is slower than bonds and angles
-                valid_torsion_conf_ids, torsion_validities, new_torsion_patterns = self.analyze_torsions(mol)
-                validities.extend(torsion_validities)
-                new_patterns.extend([('torsion', p) for p in new_torsion_patterns])
-                if self.include_torsions:
-                    valid_conf_ids = valid_conf_ids.intersection(valid_torsion_conf_ids)
-                    
-            valid_ring_conf_ids, ring_validities = self.analyze_rings(mol)
-            valid_conf_ids = valid_conf_ids.intersection(valid_ring_conf_ids)
-            validities.extend(ring_validities)
+        valid_angle_conf_ids, angle_validities, new_angle_patterns = self.analyze_angles(mol)
+        valid_conf_ids = valid_conf_ids.intersection(valid_angle_conf_ids)
+        validities.extend(angle_validities)
+        new_patterns.extend([('angle', p) for p in new_angle_patterns])
+        
+        if analyze_torsions: # this is slower than bonds and angles
+            valid_torsion_conf_ids, torsion_validities, new_torsion_patterns = self.analyze_torsions(mol)
+            validities.extend(torsion_validities)
+            new_patterns.extend([('torsion', p) for p in new_torsion_patterns])
+            if self.include_torsions:
+                valid_conf_ids = valid_conf_ids.intersection(valid_torsion_conf_ids)
                 
-        elif self.backend == 'CSD':
-            
-            valid_conf_ids = []
-            for conf in mol.GetConformers():
-                conf_id = conf.GetId()
-                molecule = rdkit_conf_to_ccdc_mol(rdkit_mol=mol, 
-                                                  conf_id=conf_id)
-                molecule.assign_bond_types(which='unknown')
-                molecule.standardise_aromatic_bonds()
-                molecule.standardise_delocalised_bonds()
-                molecule.add_hydrogens()
-                analysed_molecule: Molecule = self.geometry_analyser.analyse_molecule(molecule)
-                conf_bond_invalidities = [{'conf_id': conf_id,
-                                           'geometry_type': 'bond',
-                                           'string': bond.fragment_label,
-                                           'value': bond.value,
-                                           'z-score': bond.z_score}
-                                          for bond in analysed_molecule.analysed_bonds
-                                          if bond.unusual]
-                conf_angle_invalidities = [{'conf_id': conf_id,
-                                           'geometry_type': 'angle',
-                                           'string': angle.fragment_label,
-                                           'value': angle.value,
-                                           'z-score': angle.z_score}
-                                          for angle in analysed_molecule.analysed_angles
-                                          if angle.unusual]
-                conf_torsion_invalidities = [{'conf_id': conf_id,
-                                           'geometry_type': 'torsion',
-                                           'string': torsion.fragment_label,
-                                           'value': torsion.value}
-                                          for torsion in analysed_molecule.analysed_torsions
-                                          if torsion.unusual]
-                conf_ring_invalidities = [{'conf_id': conf_id,
-                                           'geometry_type': 'ring',
-                                           'string': ring.fragment_label,
-                                           'value': ring.value}
-                                          for ring in analysed_molecule.analysed_rings
-                                          if ring.unusual]
-                conf_invalidities = (conf_bond_invalidities 
-                                     + conf_angle_invalidities
-                                     + conf_torsion_invalidities
-                                     + conf_ring_invalidities)
-                n_invalidities = len(conf_invalidities)
-                is_valid = n_invalidities == 0
-                if is_valid: 
-                    valid_conf_ids.append(conf_id)
-                    
-        else:
-            print('Invalid backend')
+        valid_ring_conf_ids, ring_validities = self.analyze_rings(mol)
+        valid_conf_ids = valid_conf_ids.intersection(valid_ring_conf_ids)
+        validities.extend(ring_validities)
         
         # clashes = []
         valid_nonbonddistance_conf_ids, clashes = self.analyze_clashes(mol)

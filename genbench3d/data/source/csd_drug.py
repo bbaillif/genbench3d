@@ -1,9 +1,7 @@
 import logging
 
 from .data_source import DataSource
-from genbench3d.params import CSD_DRUG_SUBSET_PATH
 from rdkit import Chem
-from rdkit.Chem import Mol
 from ccdc.io import MoleculeReader
 from genbench3d.utils import ccdc_mol_to_rdkit_mol
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -11,8 +9,8 @@ from rdkit.Chem.MolStandardize import rdMolStandardize
 class CSDDrug(DataSource):
     
     def __init__(self,
+                 subset_path: str,
                  name: str = 'CSDDrug',
-                 subset_path: str = CSD_DRUG_SUBSET_PATH,
                  ) -> None:
         super().__init__(name)
         self.subset_path = subset_path

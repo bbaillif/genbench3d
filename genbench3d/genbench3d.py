@@ -7,9 +7,7 @@ from rdkit.Chem import Mol
 
 from .conf_ensemble import GeneratedCEL, ConfEnsembleLibrary
 from .data.generated_sample_reader import ASEDBReader
-from tqdm import tqdm
 from genbench3d.geometry import ReferenceGeometry
-from genbench3d.data.source import CrossDocked, CSDDrug
 
 from .metrics import (Metric,
                       TrainingMetric,
@@ -27,21 +25,20 @@ from .metrics import (Metric,
                       StrainEnergy,
                       )
 
-# from .benchmark_results import BenchmarkResults
-
-from genbench3d.params import DEFAULT_TFD_THRESHOLD
-
 class GenBench3D():
     
     def __init__(self,
-                 root: str = 'genbench3d_results/',
-                 show_plots: bool = False,
-                 tfd_threshold: float = DEFAULT_TFD_THRESHOLD,
+                 reference_geometry: ReferenceGeometry,
+                 config: dict,
                  ) -> None:
         
-        self.root = root
-        self.show_plots = show_plots
-        self.tfd_threshold = tfd_threshold
+        self.reference_geometry = reference_geometry
+        self.tfd_threshold = config.tfd_threshold
+        self.q_value_threshold = config.q_value_threshold
+        self.steric_clash_safety_ratio = config.steric_clash_safety_ratio
+        self.maximum_ring_plane_distance = config.maximum_ring_plane_distance
+        self.include_torsions_in_validity3D = config.include_torsions_in_validity3D
+        self.consider_hydrogens = config.consider_hydrogens
         
         self.training_cel = None
         
@@ -69,18 +66,16 @@ class GenBench3D():
         self.training_graph_metrics: List[TrainingMetric] = [Novelty2D(),
                                                             MaxTrainSim()]
         
-        self.csd_drug = CSDDrug()
-        self.csd_geometry = ReferenceGeometry(source=self.csd_drug)
-        self.validity3D_csd = Validity3D(name='Validity3D CSD',
-                                         reference_geometry=self.csd_geometry)
+        self.validity3D = Validity3D(reference_geometry=self.reference_geometry,
+                                        tfd_threshold=self.tfd_threshold,
+                                        q_value_threshold=self.q_value_threshold,
+                                        steric_clash_safety_ratio=self.steric_clash_safety_ratio,
+                                        maximum_ring_plane_distance=self.maximum_ring_plane_distance,
+                                        include_torsions=self.include_torsions_in_validity3D,
+                                        consider_hydrogens=self.consider_hydrogens,
+                                        )
         
-        self.conf_metrics: List[Metric] = [self.validity3D_csd]
-        
-        # self.crossdocked = CrossDocked()
-        # self.crossdocked_geometry = ReferenceGeometry(source=self.crossdocked)
-        # self.validity3D_crossdocked = Validity3D(name='Validity3D CrossDocked',
-        #                                          reference_geometry=self.crossdocked_geometry)
-        # self.conf_metrics.append(self.validity3D_crossdocked)
+        self.conf_metrics: List[Metric] = [self.validity3D]
         
         self.conf_metrics.append(StrainEnergy())
 
@@ -117,7 +112,7 @@ class GenBench3D():
         self.results['Number of tested confs'] = cel.n_total_confs
             
         logging.info('Compute valid CEL for further analysis')
-        valid_conf_ids = self.validity3D_csd.valid_conf_ids
+        valid_conf_ids = self.validity3D.valid_conf_ids
         valid_cel = GeneratedCEL.get_cel_subset(cel=cel,
                                                 subset_conf_ids=valid_conf_ids)
         for metric in self.valid_conf_metrics:
@@ -132,6 +127,8 @@ class GenBench3D():
                 self.results[metric_name] = metric.get(cel=valid_cel, 
                                                        training_cel=self.training_cel)
                    
+        # Looping here is not necessary, but could be used if you want to use different
+        # reference geometry for different Validity3D
         validity3Ds = [metric for metric in self.conf_metrics if isinstance(metric, Validity3D)]
         for validity3D in validity3Ds:
                    
@@ -156,32 +153,19 @@ class GenBench3D():
                 
                 geo_mean_q_values = validity3D.get_geo_mean_q_values_for_geometries(combo)
                 self.results[f'Geometric mean {combo_str} q-value ({validity3D.name})'] = geo_mean_q_values
-                
-            # bond_min_q_values = validity3D.get_min_q_values_for_geometry('bond')
-            # self.results[f'Min bond q-value ({validity3D.name})'] = bond_min_q_values
-            # angle_min_q_values = validity3D.get_min_q_values_for_geometry('angle')
-            # self.results[f'Min angle q-value ({validity3D.name})'] = angle_min_q_values
-            # torsion_min_q_values = validity3D.get_min_q_values_for_geometry('torsion')
-            # self.results[f'Min torsion q-value ({validity3D.name})'] = torsion_min_q_values
-            # ba_min_q_values = validity3D.get_min_q_values_for_geometries(['bond', 'angle'])
-            # self.results[f'Min bond+angle q-value ({validity3D.name})'] = ba_min_q_values
-            # bat_min_q_values = validity3D.get_min_q_values_for_geometries(['bond', 'angle', 'torsion'])
-            # self.results[f'Min bond+angle+torsion q-value ({validity3D.name})'] = bat_min_q_values
-            
-            # bond_geo_mean_q_values = validity3D.get_geo_mean_q_values_for_geometry('bond')
-            # self.results[f'Geometric mean bond q-value ({validity3D.name})'] = bond_geo_mean_q_values
-            # angle_geo_mean_q_values = validity3D.get_geo_mean_q_values_for_geometry('angle')
-            # self.results[f'Geometric mean angle q-value ({validity3D.name})'] = angle_geo_mean_q_values
-            # torsion_geo_mean_q_values = validity3D.get_geo_mean_q_values_for_geometry('torsion')
-            # self.results[f'Geometric mean torsion q-value ({validity3D.name})'] = torsion_geo_mean_q_values
-            # ba_geo_mean_q_values = validity3D.get_geo_mean_q_values_for_geometries(['bond', 'angle'])
-            # self.results[f'Geometric mean bond+angle q-value ({validity3D.name})'] = ba_geo_mean_q_values
-            # bat_geo_mean_q_values = validity3D.get_geo_mean_q_values_for_geometries(['bond', 'angle', 'torsion'])
-            # self.results[f'Geometric mean bond+angle+torsion q-value ({validity3D.name})'] = bat_geo_mean_q_values
-            
-            
                
         return self.results
+    
+    
+    def get_results_for_mol_list(self,
+                                  mols: List[Mol],
+                                  n_total_mols: int = None,
+                                  names: list[str] = None,
+                                  ):
+        cel = GeneratedCEL.from_mol_list(mol_list=mols, 
+                                         n_total_mols=n_total_mols,
+                                         names=names)
+        return self.get_results_for_cel(cel)
     
     
     def get_results_for_ase_db(self, 
@@ -228,14 +212,4 @@ class GenBench3D():
         
         return self.get_results_for_cel(cel)
     
-    
-    def get_results_for_mol_list(self,
-                                  mols: List[Mol],
-                                  n_total_mols: int = None,
-                                  names: list[str] = None,
-                                  ):
-        cel = GeneratedCEL.from_mol_list(mol_list=mols, 
-                                         n_total_mols=n_total_mols,
-                                         names=names)
-        return self.get_results_for_cel(cel)
     

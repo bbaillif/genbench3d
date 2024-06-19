@@ -3,8 +3,9 @@ warnings.filterwarnings("ignore")
 
 import pickle
 import os
-import gzip
 import logging
+import yaml
+import argparse
 
 from rdkit import Chem
 from tqdm import tqdm
@@ -12,12 +13,9 @@ from genbench3d import SBGenBench3D
 from genbench3d.data import ComplexMinimizer
 from genbench3d.data.structure import (Pocket, 
                                        VinaProtein, 
-                                       GlideProtein,
-                                       Protein)
+                                       GlideProtein)
 from genbench3d.conf_ensemble import ConfEnsembleLibrary
 from genbench3d.sb_model import TargetDiff
-from genbench3d.params import (MINIMIZED_DIRPATH, 
-                               OVERWRITE)
 from genbench3d.data.source import CrossDocked
 from genbench3d.sb_model import (SBModel,
                                  LiGAN,
@@ -27,6 +25,8 @@ from genbench3d.sb_model import (SBModel,
                                  TargetDiff,
                                  ResGen)
 from genbench3d.utils import preprocess_mols
+from genbench3d.geometry import ReferenceGeometry
+from genbench3d.data.source import CSDDrug
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -41,31 +41,55 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
                     encoding='utf-8', 
                     level=logging.INFO)
 
-overwrite = OVERWRITE
+parser = argparse.ArgumentParser()
+parser.add_argument("config_path", 
+                    default='config/default.yaml', 
+                    type=str,
+                    help="Path to config file.")
+args = parser.parse_args()
 
-results_dirpath = '/home/bb596/hdd/ThreeDGenMolBenchmark/results/'
+config = yaml.safe_load(open(args.config_path, 'r'))
+overwrite = config['genbench3d']['overwrite_results']
+
+results_dirpath = config['results_dir']
 if not os.path.exists(results_dirpath):
     os.mkdir(results_dirpath)
 
-minimized_path = MINIMIZED_DIRPATH
+minimized_path = config['data']['minimized_path']
 if not os.path.exists(minimized_path):
     os.mkdir(minimized_path)
 
-train_crossdocked = CrossDocked(subset='train')
+source = CSDDrug(subset_path=config.csd_drug_subset_path)
+reference_geometry = ReferenceGeometry(source=source,
+                                       root=config['benchmark_dirpath'],
+                                       minimum_pattern_values=config['minimum_pattern_values'],)
+
+train_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
+                                config=config['data'],
+                                subset='train')
 train_ligands = train_crossdocked.get_ligands()
 training_mols = [Chem.AddHs(mol, addCoords=True) for mol in train_ligands]
 training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 
-test_crossdocked = CrossDocked(subset='test')
+test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
+                                config=config['data'],
+                                subset='test')
 ligand_filenames = test_crossdocked.get_ligand_filenames()
 
 models: list[SBModel] = [
-                        LiGAN(),
-                        ThreeDSBDD(),
-                        Pocket2Mol(),
-                        TargetDiff(),
-                        DiffSBDD(),
-                        ResGen()]
+                        LiGAN(gen_path=config['models']['ligan_gen_dirpath'],
+                              minimized_path=config['data']['minimized_path']),
+                        ThreeDSBDD(gen_path=config['models']['threedsbdd_gen_dirpath'],
+                                   minimized_path=config['data']['minimized_path']),
+                        Pocket2Mol(gen_path=config['models']['pocket2mol_gen_dirpath'],
+                                   minimized_path=config['data']['minimized_path']),
+                        TargetDiff(results_path=config['models']['targetdiff_results_filepath'],
+                                   minimized_path=config['data']['minimized_path']),
+                        DiffSBDD(gen_path=config['models']['diffsbdd_gen_dirpath'],
+                                 minimized_path=config['data']['minimized_path']),
+                        ResGen(gen_path=config['models']['resgen_gen_dirpath'],
+                               minimized_path=config['data']['minimized_path'])
+                        ]
 
 d_results = {} # {target_name: {model_name: {rawOrProcessed: {metric: values_list}}}}
 
@@ -73,7 +97,7 @@ minimizes = [False, True]
 
 logging.info('Starting benchmark')
 try:
-    for ligand_filename in tqdm(ligand_filenames[34:]):
+    for ligand_filename in tqdm(ligand_filenames):
         target_dirname, real_ligand_filename = ligand_filename.split('/')
         try:
             logging.info(ligand_filename)
@@ -86,12 +110,18 @@ try:
             
             original_structure_path = test_crossdocked.get_original_structure_path(ligand_filename)
             
-            vina_protein = VinaProtein(pdb_filepath=original_structure_path)
+            vina_protein = VinaProtein(pdb_filepath=original_structure_path,
+                                       prepare_receptor_bin_path=config['bin']['prepare_receptor_bin_path'],)
             glide_protein = GlideProtein(pdb_filepath=vina_protein.protein_clean_filepath,
-                                        native_ligand=native_ligand)
+                                        native_ligand=native_ligand,
+                                        glide_output_dirpath=config['glide_working_dir'],
+                                        glide_path=config['bin']['glide_path'],
+                                        structconvert_path=config['bin']['structconvert_path'],)
             pocket = Pocket(pdb_filepath=vina_protein.protein_clean_filepath, 
-                            native_ligand=native_ligand)
-            complex_minimizer = ComplexMinimizer(pocket)
+                            native_ligand=native_ligand,
+                            distance_from_ligand=config['pocket_distance_from_ligand'])
+            complex_minimizer = ComplexMinimizer(pocket,
+                                                 config=config['minimization'])
             
             for minimize in minimizes:
             
@@ -102,10 +132,16 @@ try:
                 else:
                     set_name = 'raw'
             
-                sbgenbench3D = SBGenBench3D(pocket,
-                                            native_ligand)
-                sbgenbench3D.setup_vina(vina_protein)
-                sbgenbench3D.setup_glide(glide_protein)
+                sbgenbench3D = SBGenBench3D(reference_geometry=reference_geometry,
+                                            config=config['genbench3d'],
+                                            pocket=pocket,
+                                            native_ligand=native_ligand)
+                sbgenbench3D.setup_vina(vina_protein,
+                                        config['vina'],
+                                       add_minimized=True)
+                sbgenbench3D.setup_glide(glide_protein,
+                                         glide_path=config['bin']['glide_path'],
+                                         add_minimized=True)
                 sbgenbench3D.setup_gold_plp(vina_protein)
                 sbgenbench3D.set_training_cel(training_cel)
             

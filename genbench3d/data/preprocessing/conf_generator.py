@@ -7,7 +7,7 @@ from ccdc.conformer import ConformerGenerator, ConformerHitList
 from ccdc.molecule import Molecule
 from ccdc.io import MoleculeWriter, MoleculeReader
 from typing import Tuple
-from genbench3d.params import (BIO_CONF_DIRNAME,
+from genbench3d.conf_ensemble.conf_ensemble_library import (BIO_CONF_DIRNAME,
                     GEN_CONF_DIRNAME, 
                     DATA_DIRPATH)
 

@@ -4,39 +4,30 @@ import pickle
 
 from tqdm import tqdm
 from .data_source import DataSource
-from genbench3d.params import (CROSSDOCKED_SPLITS_P_PATH, 
-                               CROSSDOCKED_POCKET10_PATH, 
-                               BENCHMARK_DIRPATH, 
-                               CROSSDOCKED_DATA_PATH,
-                               MINIMIZED_DIRPATH)
 from rdkit import Chem
 from rdkit.Chem import Mol
 from genbench3d.data import ComplexMinimizer
 
 CROSSDOCKED_SUBSETS = ['train', 'test']
-CROSSDOCKED_LIGANDS_PATH = os.path.join(BENCHMARK_DIRPATH, 'crossdocked_ligands.sdf')
 
 # ligand_filename is actually TARGET_NAME/ligand_filename.sdf
 
 class CrossDocked(DataSource):
     
     def __init__(self,
-                 name: str = 'CrossDocked',
-                 root: str = BENCHMARK_DIRPATH,
-                 pocket_path: str = CROSSDOCKED_POCKET10_PATH,
-                 data_path: str = CROSSDOCKED_DATA_PATH,
-                 split_path: str = CROSSDOCKED_SPLITS_P_PATH,
-                 minimized_path: str = MINIMIZED_DIRPATH,
+                 root: str ,
+                 config: dict,
                  subset: str = 'train',
+                 name: str = 'CrossDocked',
                  ) -> None:
         assert subset in CROSSDOCKED_SUBSETS, \
             f'subset must be in {CROSSDOCKED_SUBSETS}'
         super().__init__(name)
         self.root = root
-        self.pocket_path = pocket_path
-        self.data_path = data_path
-        self.split_path = split_path
-        self.minimized_path = minimized_path
+        self.pocket_path = config['crossdocked_pocket10_path']
+        self.data_path = config['crossdocked_full_data_path']
+        self.split_path = config['crossdocked_splits_p_path']
+        self.minimized_path = config['minimizes_path']
         self.subset = subset
         
         self.ligands_path = os.path.join(self.root, f'crossdocked_ligands_{self.subset}.sdf')

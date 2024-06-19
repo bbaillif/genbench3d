@@ -1,4 +1,3 @@
-import MDAnalysis as mda
 import logging
 
 from rdkit import Chem
@@ -11,18 +10,19 @@ class ComplexMinimizer():
     
     def __init__(self,
                  pocket: Pocket,
+                 config: dict,
                  ) -> None:
         """
         The protein must be only the protein atoms, with hydrogens
         """
         self.pocket = pocket
+        self.n_steps = config['n_steps']
+        self.distance_constraint_A = config['distance_constraint']
     
     
     def minimize_ligand(self,
                         ligand_mol: Mol,
                         minimized_ligand_filepath: str = None,
-                        n_steps: int = 1000,
-                        distance_constraint: float = 1.0, # A
                         ignore_pocket: bool = False,
                         ):
         
@@ -47,7 +47,7 @@ class ComplexMinimizer():
             for idx in range(self.pocket.mol.GetNumAtoms(), complx.GetNumAtoms()):
                 atom = complx.GetAtomWithIdx(idx)
                 if atom.GetSymbol() != 'H':
-                    mmff.MMFFAddPositionConstraint(idx, distance_constraint, 999.0)
+                    mmff.MMFFAddPositionConstraint(idx, self.distance_constraint_A, 999.0)
 
             # get the initial energy
             E_init = mmff.CalcEnergy()
@@ -65,7 +65,7 @@ class ComplexMinimizer():
             with Chem.SDWriter('test_complex_before.sdf') as w:
                 w.write(complx)
                 
-            results = mmff.Minimize(maxIts=n_steps)
+            results = mmff.Minimize(maxIts=self.n_steps)
             not_converged = results
 
             with Chem.SDWriter('test_complex_after.sdf') as w:
