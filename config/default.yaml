@@ -1,0 +1,49 @@
+benchmark_dir: /home/bb596/hdd/genbench3D/
+glide_working_dir: ./glide_working_dir/
+results_dir: /home/bb596/hdd/genbench3D/results/
+
+pocket_distance_from_ligand: 5.0 # Angstrom
+
+bin:
+  prepare_receptor_bin_path: '/home/bb596/ADFRsuite/bin/prepare_receptor'
+  glide_path: '/usr/local/shared/schrodinger/current/glide'
+  structconvert_path: '/usr/local/shared/schrodinger/current/utilities/structconvert'
+
+data:
+  ligboundconf_path: '/home/bb596/hdd/LigBoundConf/minimized/S2_LigBoundConf_minimized.sdf'
+  csd_drug_subset_path: '/home/bb596/hdd/genbench3D/CSD_Drug_Subset.gcd'
+  crossdocked_path: '/home/bb596/hdd/CrossDocked/'
+  crossdocked_full_data_path: '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/'
+  crossdocked_pocket10_path: '/home/bb596/hdd/CrossDocked/crossdocked_pocket10/'
+  crossdocked_splits_pt_path: '/home/bb596/hdd/CrossDocked/split_by_name.pt'
+  crossdocked_splits_p_path: '/home/bb596/hdd/CrossDocked/split_by_name.p'
+  minimized_path: '/home/bb596/hdd/genbench3D/minimized/'
+
+genbench3D:
+  minimum_pattern_values: 50
+  tfd_threshold: 0.2
+  q_value_threshold: 0.001
+  steric_clash_safety_ratio: 0.75
+  maximum_ring_plane_distance: 0.1 # Angstrom
+  consider_hydrogens: False
+  include_torsions_in_validity3D: False
+  add_minimized_docking_scores: True
+  overwrite_results: False
+
+models:
+  targetdiff_results_filepath: '/home/bb596/hdd/genbench3D/targetdiff/targetdiff_vina_docked.p'
+  threedsbdd_gen_dirpath: '/home/bb596/hdd/genbench3D/AR/test_set/'
+  pocket2mol_gen_dirpath: '/home/bb596/hdd/genbench3D/Pocket2Mol/test_set/'
+  diffsbdd_gen_dirpath:  '/home/bb596/hdd/genbench3D/DiffSBDD/crossdocked_fullatom_joint/'
+  ligan_gen_dirpath: '/home/bb596/hdd/genbench3D/LiGAN/molecules/'
+  resgen_gen_dirpath: /home/bb596/hdd/genbench3D/ResGen/test_set/'
+
+minimization:
+  distance_constraint_A: 1.0 # Angstrom
+  n_steps: 1000
+
+vina:
+  scoring_function: 'vina'
+  size_border: 35 # Angstrom
+  n_cpus: 4
+  seed: 2023
