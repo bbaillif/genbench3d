@@ -66,11 +66,13 @@ class CrossDocked(DataSource):
             pocket_path, ligand_subpath = duo
             ligand_path = os.path.join(self.pocket_path, ligand_subpath)
             ligand = next(Chem.SDMolSupplier(ligand_path))
-            if ligand is not None:
-                ligands.append(ligand)
-                writer.write(ligand)
-            else:
-                logging.warning('Invalid CrossDocked ligand')
+            # if ligand is not None:
+            #     ligands.append(ligand)
+            #     writer.write(ligand)
+            # else:
+            #     logging.warning('Invalid CrossDocked ligand')
+            ligands.append(ligand)
+            writer.write(ligand)
         return ligands
                 
     

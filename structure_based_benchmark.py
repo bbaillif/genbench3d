@@ -26,6 +26,7 @@ from genbench3d.sb_model import (SBModel,
                                  DiffSBDD,
                                  TargetDiff,
                                  ResGen)
+from genbench3d.utils import preprocess_mols
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -58,10 +59,11 @@ training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 test_crossdocked = CrossDocked(subset='test')
 ligand_filenames = test_crossdocked.get_ligand_filenames()
 
-models: list[SBModel] = [TargetDiff(),
+models: list[SBModel] = [
                         LiGAN(),
                         ThreeDSBDD(),
                         Pocket2Mol(),
+                        TargetDiff(),
                         DiffSBDD(),
                         ResGen()]
 
@@ -71,7 +73,7 @@ minimizes = [False, True]
 
 logging.info('Starting benchmark')
 try:
-    for ligand_filename in tqdm(ligand_filenames):
+    for ligand_filename in tqdm(ligand_filenames[34:]):
         target_dirname, real_ligand_filename = ligand_filename.split('/')
         try:
             logging.info(ligand_filename)
@@ -121,28 +123,30 @@ try:
                     if not os.path.exists(results_filepath) or overwrite:
                     
                         gen_mols = model.get_generated_molecules(ligand_filename)
+                        n_total_mols = len(gen_mols)
+                        gen_mols = preprocess_mols(gen_mols)
                         if len(gen_mols) > 0:
+                            gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
                             if minimize:
-                                mini_gen_mols = model.get_minimized_molecules(ligand_filename,
-                                                                            gen_mols_h,
-                                                                            complex_minimizer)
-                                gen_mols_h = mini_gen_mols
+                                gen_mols = model.get_minimized_molecules(ligand_filename,
+                                                                        gen_mols_h,
+                                                                        complex_minimizer)
                             else:
-                                gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
+                                gen_mols = gen_mols_h
                     
                             d_model = {}
                         
                             logging.info(set_name)
-                            results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols_h,
-                                                                            n_total_mols=100,
+                            results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
+                                                                            n_total_mols=n_total_mols,
                                                                             do_conf_analysis=False)
                             
                             d_model[set_name] = results
                             
                             # Valid only results
                             logging.info(f'{set_name}_valid')
-                            results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols_h,
-                                                                            n_total_mols=100,
+                            results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
+                                                                            n_total_mols=n_total_mols,
                                                                             do_conf_analysis=True,
                                                                             valid_only=True)
                             d_model[f'{set_name}_valid'] = results

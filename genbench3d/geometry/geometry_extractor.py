@@ -206,7 +206,7 @@ class GeometryExtractor():
         second_atom = mol.GetAtomWithIdx(second_atom_idx)
         end_atom = mol.GetAtomWithIdx(end_atom_idx)
         
-        ring_sizes = [[]] * 3
+        ring_sizes = [[] for _ in range(3)]
         atom_ids = [atom.GetIdx() for atom in [begin_atom, second_atom, end_atom]]
         ring_info = mol.GetRingInfo()
         ring_atoms = ring_info.AtomRings()
@@ -297,7 +297,7 @@ class GeometryExtractor():
         third_atom = mol.GetAtomWithIdx(third_atom_idx)
         end_atom = mol.GetAtomWithIdx(end_atom_idx)
         
-        ring_sizes = [[]] * 4
+        ring_sizes = [[] for _ in range(4)]
         atom_ids = [atom.GetIdx() for atom in [begin_atom, second_atom, third_atom, end_atom]]
         ring_info = mol.GetRingInfo()
         ring_atoms = ring_info.AtomRings()
@@ -334,15 +334,15 @@ class GeometryExtractor():
         if atom_tuple_2 < atom_tuple_3:
             ascending_atom_id_order = False
         elif atom_tuple_2 == atom_tuple_3:
-            if bond_type_12 < bond_type_34:
+            if neighborhood_tuple_2 < neighborhood_tuple_3:
                 ascending_atom_id_order = False
-            elif bond_type_12 == bond_type_34:
-                if atom_tuple_1 < atom_tuple_4:
+            elif neighborhood_tuple_2 == neighborhood_tuple_3:
+                if bond_type_12 < bond_type_34:
                     ascending_atom_id_order = False
-                elif atom_tuple_1 == atom_tuple_4:
-                    if neighborhood_tuple_2 < neighborhood_tuple_3:
+                elif bond_type_12 == bond_type_34:
+                    if atom_tuple_1 < atom_tuple_4:
                         ascending_atom_id_order = False
-                    elif neighborhood_tuple_2 == neighborhood_tuple_3:
+                    elif atom_tuple_1 == atom_tuple_4:
                         if neighborhood_tuple_1 < neighborhood_tuple_4:
                             ascending_atom_id_order = False
             

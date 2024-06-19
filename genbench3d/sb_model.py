@@ -127,7 +127,10 @@ class ThreeDSBDD(SBModel):
             logging.warning(f'Ligand filename {ligand_filename} not found in 3D-SBDD results')
             gen_mols = []
         else:
-            gen_mols = [mol for mol in Chem.SDMolSupplier(gen_mols_filepath) if mol is not None]
+            gen_mols = [mol 
+                        for mol in Chem.SDMolSupplier(gen_mols_filepath) 
+                        # if mol is not None
+                        ]
     
         return gen_mols
     
@@ -151,7 +154,10 @@ class Pocket2Mol(SBModel):
             logging.warning(f'Ligand filename {ligand_filename} not found in Pocket2Mol results')
             gen_mols = []
         else:
-            gen_mols = [mol for mol in Chem.SDMolSupplier(gen_mols_filepath) if mol is not None]
+            gen_mols = [mol 
+                        for mol in Chem.SDMolSupplier(gen_mols_filepath) 
+                        # if mol is not None
+                        ]
     
         return gen_mols
 
@@ -179,7 +185,10 @@ class DiffSBDD(SBModel):
             logging.warning(f'Ligand filename {ligand_filename} not found in DiffSBDD results')
             gen_mols = []
         else:
-            gen_mols = [mol for mol in Chem.SDMolSupplier(gen_mols_filepath) if mol is not None]
+            gen_mols = [mol 
+                        for mol in Chem.SDMolSupplier(gen_mols_filepath)
+                        # if mol is not None
+                        ]
     
         return gen_mols
     
@@ -205,13 +214,17 @@ class LiGAN(SBModel):
         else:
             gz_stream = gzip.open(gen_mols_filepath)
             with Chem.ForwardSDMolSupplier(gz_stream) as gzsuppl:
-                mols = []
-                for mol in gzsuppl:
-                    try:
-                        if (mol is not None) and (mol.GetNumAtoms() > 0) and (not '.' in Chem.MolToSmiles(mol)) :
-                            mols.append(mol)
-                    except Exception as e:
-                        print(f'Mol not read exception: {e}')
+                # mols = []
+                # for mol in gzsuppl:
+                #     try:
+                #         if (mol is not None) and (mol.GetNumAtoms() > 0) and (not '.' in Chem.MolToSmiles(mol)) :
+                #             mols.append(mol)
+                #     except Exception as e:
+                #         print(f'Mol not read exception: {e}')
+                mols = [mol 
+                        for mol in gzsuppl 
+                        # if mol is not None
+                        ]
                 gen_mols = mols
     
         return gen_mols
@@ -237,6 +250,135 @@ class ResGen(SBModel):
             logging.warning(f'Ligand filename {ligand_filename} not found in ResGen results')
             gen_mols = []
         else:
-            gen_mols = [mol for mol in Chem.SDMolSupplier(gen_mols_filepath) if mol is not None]
+            gen_mols = [mol 
+                        for mol in Chem.SDMolSupplier(gen_mols_filepath) 
+                        # if mol is not None
+                        ]
+    
+        return gen_mols
+    
+    
+class Ymir(SBModel):
+    
+    def __init__(self,
+                 name: str = 'Ymir',
+                 minimized_path: str = MINIMIZED_DIRPATH,
+                 gen_path = '/home/bb596/hdd/ymir/generated_cross_docked_late/'
+                 ) -> None:
+        super().__init__(name,
+                         minimized_path)
+        self.gen_path = gen_path
+    
+    def get_generated_molecules(self, 
+                                ligand_filename: str):
+        
+        _, real_ligand_filename = ligand_filename.split('/')
+        gen_mols_filename = real_ligand_filename.replace('.sdf', '.sdf_generated.sdf')
+        gen_mols_filepath = os.path.join(self.gen_path, gen_mols_filename)
+        if not os.path.exists(gen_mols_filepath):
+            logging.warning(f'Ligand filename {ligand_filename} not found in Ymir results')
+            gen_mols = []
+        else:
+            gen_mols = [mol 
+                        for mol in Chem.SDMolSupplier(gen_mols_filepath) 
+                        # if mol is not None
+                        ]
+            
+        has_attach_l = []
+        for gen_mol in gen_mols:
+            has_attach = False
+            for atom in gen_mol.GetAtoms():
+                if atom.GetAtomicNum() == 0:
+                    atom.SetAtomicNum(1)
+                    has_attach = True
+            has_attach_l.append(has_attach)
+            Chem.SanitizeMol(gen_mol)
+            Chem.AssignStereochemistry(gen_mol)
+                    
+        logging.info(f'{ligand_filename}: has attach: {sum(has_attach_l)}')
+    
+        return gen_mols
+    
+    
+class YmirRandom(SBModel):
+    
+    def __init__(self,
+                 name: str = 'YmirRandom',
+                 minimized_path: str = MINIMIZED_DIRPATH,
+                 gen_path = '/home/bb596/hdd/ymir/generated_cross_docked_random/'
+                 ) -> None:
+        super().__init__(name,
+                         minimized_path)
+        self.gen_path = gen_path
+    
+    def get_generated_molecules(self, 
+                                ligand_filename: str):
+        
+        _, real_ligand_filename = ligand_filename.split('/')
+        gen_mols_filename = real_ligand_filename.replace('.sdf', '.sdf_generated.sdf')
+        gen_mols_filepath = os.path.join(self.gen_path, gen_mols_filename)
+        if not os.path.exists(gen_mols_filepath):
+            logging.warning(f'Ligand filename {ligand_filename} not found in Ymir results')
+            gen_mols = []
+        else:
+            gen_mols = [mol 
+                        for mol in Chem.SDMolSupplier(gen_mols_filepath) 
+                        # if mol is not None
+                        ]
+            
+        has_attach_l = []
+        for gen_mol in gen_mols:
+            has_attach = False
+            for atom in gen_mol.GetAtoms():
+                if atom.GetAtomicNum() == 0:
+                    atom.SetAtomicNum(1)
+                    has_attach = True
+            has_attach_l.append(has_attach)
+            Chem.SanitizeMol(gen_mol)
+            Chem.AssignStereochemistry(gen_mol)
+                    
+        logging.info(f'{ligand_filename}: has attach: {sum(has_attach_l)}')
+    
+        return gen_mols
+    
+    
+class YmirEarly(SBModel):
+    
+    def __init__(self,
+                 name: str = 'YmirEarly',
+                 minimized_path: str = MINIMIZED_DIRPATH,
+                 gen_path = '/home/bb596/hdd/ymir/generated_cross_docked_early/'
+                 ) -> None:
+        super().__init__(name,
+                         minimized_path)
+        self.gen_path = gen_path
+    
+    def get_generated_molecules(self, 
+                                ligand_filename: str):
+        
+        _, real_ligand_filename = ligand_filename.split('/')
+        gen_mols_filename = real_ligand_filename.replace('.sdf', '.sdf_generated.sdf')
+        gen_mols_filepath = os.path.join(self.gen_path, gen_mols_filename)
+        if not os.path.exists(gen_mols_filepath):
+            logging.warning(f'Ligand filename {ligand_filename} not found in Ymir results')
+            gen_mols = []
+        else:
+            gen_mols = [mol 
+                        for mol in Chem.SDMolSupplier(gen_mols_filepath) 
+                        # if mol is not None
+                        ]
+            
+        has_attach_l = []
+        for gen_mol in gen_mols:
+            has_attach = False
+            for atom in gen_mol.GetAtoms():
+                if atom.GetAtomicNum() == 0:
+                    atom.SetAtomicNum(1)
+                    has_attach = True
+            has_attach_l.append(has_attach)
+            Chem.SanitizeMol(gen_mol)
+            Chem.AssignStereochemistry(gen_mol)
+                    
+        logging.info(f'{ligand_filename}: has attach: {sum(has_attach_l)}')
     
         return gen_mols

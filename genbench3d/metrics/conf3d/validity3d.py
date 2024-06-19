@@ -68,8 +68,8 @@ class Validity3D(Metric):
             cel: GeneratedCEL) -> float:
         
         self.n_valid_confs = 0
-        # for name, ce in tqdm(cel.items()):
-        for name, ce in cel.items():
+        for name, ce in tqdm(cel.items()):
+        # for name, ce in cel.items():
             mol = ce.mol
             valid_conf_ids = self.get_valid_conf_ids_for_mol(mol, 
                                                             name)

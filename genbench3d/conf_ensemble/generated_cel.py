@@ -1,7 +1,9 @@
 from typing import List, Dict
+from rdkit import Chem
 from rdkit.Chem import Mol
 from genbench3d.params import BIO_CONF_DIRNAME, DATA_DIRPATH
 from .conf_ensemble_library import ConfEnsembleLibrary
+from genbench3d.utils import preprocess_mols
 
 class GeneratedCEL(ConfEnsembleLibrary):
     
@@ -23,6 +25,7 @@ class GeneratedCEL(ConfEnsembleLibrary):
                       names: List[str] = None,
                       standardize: bool = False,
                       n_total_mols: int = None) -> ConfEnsembleLibrary:
+        
         cel = super().from_mol_list(mol_list, 
                                     cel_name, 
                                     root, 

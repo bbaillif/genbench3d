@@ -101,3 +101,18 @@ def unshift_abs_torsion_values(values: list[float],
     reverse shift: current 0 of a degree distribution becomes the new x
     '''
     return (values + x) % 180
+
+
+def preprocess_mols(mol_list):
+    new_mol_list = []
+    for mol in mol_list:
+        mol_was_parsed = mol is not None
+        if mol_was_parsed:
+            mol_is_not_empty = mol.GetNumAtoms() > 0
+            try:
+                mol_is_single_fragment = not '.' in Chem.MolToSmiles(mol)
+                if mol_is_not_empty and mol_is_single_fragment:
+                    new_mol_list.append(mol)
+            except Exception as e:
+                pass
+    return new_mol_list

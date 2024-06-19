@@ -14,15 +14,25 @@ from genbench3d.utils import shift_torsion_values
 from .geometry_extractor import GeometryExtractor
 from .pattern import BondPattern, AnglePattern, TorsionPattern, GeometryPattern
 from sklearn.mixture import GaussianMixture
+from sklearn.neighbors import KernelDensity
+from .von_mises_kde import VonMisesKDE
 from scipy.stats import norm
 from dataclasses import dataclass
 from genbench3d.data.source import DataSource
+from scipy.optimize import minimize, OptimizeResult
+from scipy.special import iv
 
-VALIDITY_METHODS = ['boundaries', 'mixtures']
+VALIDITY_METHODS = ['boundaries', 'mixtures', 'kernel_density']
 
 @dataclass
 class GeometryMixture:
     mixture: GaussianMixture
+    max_likelihood: float
+    shift: float = 0 # only used in torsion mixtures
+    
+@dataclass
+class GeometryKernelDensity:
+    kernel_density: KernelDensity
     max_likelihood: float
     shift: float = 0 # only used in torsion mixtures
     
@@ -31,13 +41,14 @@ Range = tuple[float, float]
 Values = dict[GeometryPattern, list[float]]
 Ranges = dict[GeometryPattern, Range]
 Mixtures = dict[GeometryPattern, GeometryMixture]
+KernelDensities = dict[GeometryPattern, GeometryKernelDensity]
 
 class ReferenceGeometry():
     
     def __init__(self,
                  source: DataSource,
                  root: str = DATA_DIRPATH,
-                 validity_method: str = 'mixtures',
+                 validity_method: str = 'kernel_density',
                  min_pattern_values: int = MIN_PATTERN_VALUES) -> None:
         assert validity_method in VALIDITY_METHODS, \
             f'Validity method must be in {VALIDITY_METHODS}'
@@ -52,11 +63,14 @@ class ReferenceGeometry():
         self.values_filepath = os.path.join(root, f'{source.name}_geometry_values.p')
         self.ranges_filepath = os.path.join(root, f'{source.name}_geometry_ranges.p')
         self.mixtures_filepath = os.path.join(root, f'{source.name}_geometry_mixtures.p')
+        self.kernel_densities_filepath = os.path.join(root, f'{source.name}_geometry_kernel_densities.p')
         
         if validity_method == 'boundaries':
             self.ranges = self.read_ranges()
-        else:
+        if validity_method == 'mixtures':
             self.mixtures = self.read_mixtures()
+        if validity_method == 'kernel_density':
+            self.kernel_densities = self.read_densities()
     
     
     def read_values(self) -> dict[str, Values]:
@@ -86,6 +100,16 @@ class ReferenceGeometry():
             with open(self.mixtures_filepath, 'rb') as f:
                 mixtures = pickle.load(f)
         return mixtures
+    
+    
+    def read_densities(self) -> dict[str, KernelDensities]:
+        values = self.read_values()
+        if not os.path.exists(self.kernel_densities_filepath):
+            kernel_densities = self.compute_densities(values)
+        else:
+            with open(self.kernel_densities_filepath, 'rb') as f:
+                kernel_densities = pickle.load(f)
+        return kernel_densities
     
     
     def compute_values(self) -> dict[str, Values]:
@@ -246,6 +270,189 @@ class ReferenceGeometry():
         return mixtures
             
             
+    def compute_densities(self,
+                          values: dict[str, Values]
+                         ) -> dict[str, Mixtures]:
+        
+        logging.info(f'Computing geometry kernel densities for {self.source.name}')
+        
+        bond_values: dict[BondPattern, list[float]] = values['bond']
+        angle_values: dict[AnglePattern, list[float]] = values['angle']
+        torsion_values: dict[TorsionPattern, list[float]] = values['torsion']
+        
+        bond_bandwidth = 0.01
+        angle_bandwidth = 1.0
+        torsion_bandwidth = 200.0
+        
+        # Bonds
+        logging.info(f'Computing bond kernel densities for {self.source.name}')
+        bond_kernel_densities: dict[BondPattern, GeometryKernelDensity] = {}
+        for pattern, pattern_values in tqdm(bond_values.items()):
+            if len(pattern_values) > self.min_pattern_values:
+                # bandwidth = self.silverman_scott_bandwidth_estimation(pattern_values)
+                # bandwidth = bandwidth * 10
+                bandwidth = bond_bandwidth
+                kernel_density = KernelDensity(bandwidth=bandwidth)
+                kernel_density.fit(np.array(pattern_values).reshape(-1, 1))
+                max_likelihood = self.get_max_likelihood(kernel_density, 
+                                                         values=pattern_values, 
+                                                         geometry='bond')
+                geometry_kernel_density = GeometryKernelDensity(kernel_density, 
+                                                                max_likelihood)
+                bond_kernel_densities[pattern] = geometry_kernel_density
+                
+        logging.info(f'Computing kernel densities for generalized bond patterns for {self.source.name}')
+        generalized_bond_values = defaultdict(list)
+        for pattern, values in bond_values.items():
+            generalized_pattern = pattern.generalize()
+            generalized_bond_values[generalized_pattern].extend(values)
+            
+        for pattern, pattern_values in tqdm(generalized_bond_values.items()):
+            if len(pattern_values) > self.min_pattern_values:
+                # bandwidth = self.silverman_scott_bandwidth_estimation(pattern_values)
+                # bandwidth = bandwidth * 10
+                bandwidth = bond_bandwidth
+                kernel_density = KernelDensity(bandwidth=bandwidth)
+                kernel_density.fit(np.array(pattern_values).reshape(-1, 1))
+                max_likelihood = self.get_max_likelihood(kernel_density, 
+                                                         pattern_values, 
+                                                         geometry='bond')
+                geometry_kernel_density = GeometryKernelDensity(kernel_density, 
+                                                                max_likelihood)
+                bond_kernel_densities[pattern] = geometry_kernel_density
+                
+        # Angles
+        logging.info(f'Computing angle kernel densities for {self.source.name}')
+        angle_kernel_densities: dict[AnglePattern, GeometryKernelDensity] = {}
+        for pattern, pattern_values in tqdm(angle_values.items()):
+            if len(pattern_values) > self.min_pattern_values:
+                # bandwidth = self.silverman_scott_bandwidth_estimation(pattern_values)
+                # bandwidth = bandwidth * 5
+                bandwidth = angle_bandwidth
+                kernel_density = KernelDensity(bandwidth=bandwidth)
+                kernel_density.fit(np.array(pattern_values).reshape(-1, 1))
+                max_likelihood = self.get_max_likelihood(kernel_density, 
+                                                         pattern_values, 
+                                                         geometry='angle')
+                geometry_kernel_density = GeometryKernelDensity(kernel_density, 
+                                                                max_likelihood)
+                angle_kernel_densities[pattern] = geometry_kernel_density
+                
+        # Generalized angle pattern by removing only outer neighborhoods (default)
+        # or both outer and inner neighborhoods
+        logging.info(f'Computing generalized angle kernel densities for {self.source.name}')
+        inner_generalizations = [False, True]
+        for generalize_inner in inner_generalizations:
+            generalized_angle_values = defaultdict(list)
+            for pattern, pattern_values in angle_values.items():
+                generalized_pattern = pattern.generalize(inner_neighbors=generalize_inner)
+                generalized_angle_values[generalized_pattern].extend(pattern_values)
+                
+            for pattern, pattern_values in tqdm(generalized_angle_values.items()):
+                if len(pattern_values) > 50:
+                    # bandwidth = self.silverman_scott_bandwidth_estimation(pattern_values)
+                    # bandwidth = bandwidth * 5
+                    bandwidth = angle_bandwidth
+                    kernel_density = KernelDensity(bandwidth=bandwidth)
+                    kernel_density.fit(np.array(pattern_values).reshape(-1, 1))
+                    max_likelihood = self.get_max_likelihood(kernel_density, 
+                                                            pattern_values, 
+                                                            geometry='angle')
+                    geometry_kernel_density = GeometryKernelDensity(kernel_density, 
+                                                                    max_likelihood)
+                    angle_kernel_densities[pattern] = geometry_kernel_density
+            
+        logging.info(f'Computing torsion kernel densities for {self.source.name}')
+        torsion_kernel_densities = {}
+        for pattern, pattern_values in tqdm(torsion_values.items()):
+            if len(pattern_values) > 50:
+                torsion_rad = np.radians(pattern_values)
+                # bandwidth = self.taylor_von_mises_bandwidth_estimation(torsion_rad)
+                bandwidth = torsion_bandwidth
+                kernel_density = VonMisesKDE(bandwidth=bandwidth)
+                kernel_density.fit(np.array(torsion_rad).reshape(-1, 1))
+                max_likelihood = self.get_max_likelihood(kernel_density, 
+                                                        torsion_rad, 
+                                                        geometry='torsion')
+                geometry_kernel_density = GeometryKernelDensity(kernel_density, 
+                                                                max_likelihood)
+                torsion_kernel_densities[pattern] = geometry_kernel_density
+                
+        # Generalized torsion pattern by removing only outer neighborhoods (default)
+        # or both outer and inner neighborhoods
+        logging.info(f'Computing generalized torsion kernel densities for {self.source.name}')
+        inner_generalizations = [False, True]
+        for generalize_inner in inner_generalizations:
+            generalized_torsion_values = defaultdict(list)
+            for pattern, pattern_values in torsion_values.items():
+                generalized_pattern = pattern.generalize(inner_neighbors=generalize_inner)
+                generalized_torsion_values[generalized_pattern].extend(pattern_values)
+                
+            for pattern, pattern_values in tqdm(generalized_torsion_values.items()):
+                if len(pattern_values) > 50:
+                    torsion_rad = np.radians(pattern_values)
+                    # bandwidth = self.taylor_von_mises_bandwidth_estimation(torsion_rad)
+                    bandwidth = torsion_bandwidth
+                    kernel_density = VonMisesKDE(bandwidth=bandwidth)
+                    kernel_density.fit(np.array(torsion_rad).reshape(-1, 1))
+                    max_likelihood = self.get_max_likelihood(kernel_density, 
+                                                            torsion_rad, 
+                                                            geometry='torsion')
+                    geometry_kernel_density = GeometryKernelDensity(kernel_density, 
+                                                                    max_likelihood)
+                    torsion_kernel_densities[pattern] = geometry_kernel_density
+                
+        kernel_densities = {'bond': bond_kernel_densities,
+                            'angle': angle_kernel_densities,
+                            'torsion': torsion_kernel_densities}
+        
+        with open(self.kernel_densities_filepath, 'wb') as f:
+            pickle.dump(kernel_densities, f)
+            
+        return kernel_densities
+            
+            
+    def silverman_scott_bandwidth_estimation(self, 
+                                             values: list[float]) -> float:
+        n = len(values)
+        std = np.std(values)
+        iqr = np.percentile(values, 75) - np.percentile(values, 25)
+        bandwidth = 1.06 * np.min([std, iqr / 1.34]) * n ** (-1/5)
+        return bandwidth
+    
+    
+    def taylor_von_mises_bandwidth_estimation(self,
+                                                values: list[float],
+                                                bandwidth_min_value: float = 10.0,
+                                                bandwidth_max_value: float = 300.0,
+                                                kappa_max_value: float = 200.0) -> float:
+        n = len(values)
+        C = np.sum(np.cos(values))
+        S = np.sum(np.sin(values))
+        R_dash = np.sqrt((C ** 2) + (S ** 2)) / n
+        if R_dash < 0.53:
+            kappa = 2 * R_dash + (R_dash ** 3) + 5 * (R_dash ** 5) / 6
+        elif R_dash < 0.85:
+            kappa = -0.4 + 1.39 * R_dash + 0.43 / (1 - R_dash)
+        elif R_dash < 1.0:
+            kappa = 1 / ((R_dash ** 3) - 4 * (R_dash ** 2) + 3 * R_dash)
+            if kappa > kappa_max_value:
+                return bandwidth_max_value
+        else:
+            return bandwidth_max_value
+        
+        # kappa = np.min([kappa, 100]) # high kappa values leads to iv(0, kappa) = np.inf by overflow
+        
+        num = 3 * n * np.square(kappa) * iv(2, 2 * kappa)
+        den = (4 * np.power(np.pi, 1/2) * np.square(iv(0, kappa)))
+        # if kappa > 1000000 or den == np.inf:
+        #     import pdb;pdb.set_trace()
+        bandwidth = np.power(num / den, 2 / 5)
+        bandwidth = np.min([bandwidth, bandwidth_max_value])
+        bandwidth = np.max([bandwidth, bandwidth_min_value])
+        
+        return bandwidth
+            
     def get_mixture(self,
                     values: list[float]) -> GaussianMixture:
         values = np.array(values).reshape(-1, 1)
@@ -279,20 +486,54 @@ class ReferenceGeometry():
         
         
     def get_max_likelihood(self,
-                           gaussian_mixture: GaussianMixture,
+                           estimator: Union[GaussianMixture, KernelDensity],
                            values: list[float],
                            geometry: str,
-                           n_samples: int = 36000,
+                           n_samples: int = 1000,
                            ) -> float:
+        
+        def get_neg_log_likelihood(value: np.ndarray):
+            log_likelihood = estimator.score_samples(value.reshape(-1, 1))
+            return -log_likelihood
+        
         # values = mixture.means_.reshape(-1)
         if geometry == 'bond':
-            values = np.linspace(0.5, 3.5, n_samples)
+            samples = np.linspace(0.5, 3.5, n_samples)
         elif geometry == 'angle':
-            values = np.linspace(0, 180, n_samples)
+            samples = np.linspace(0, 180, n_samples)
         else:
-            values = np.linspace(-180, 180, n_samples)
-        likelihoods = self.get_likelihoods(gaussian_mixture, values)
-        max_likelihood = np.max(likelihoods)
+            if isinstance(estimator, GaussianMixture):
+                samples = np.linspace(-180, 180, n_samples)
+            else:
+                assert isinstance(estimator, KernelDensity) or isinstance(estimator, VonMisesKDE)
+                samples = np.linspace(-np.pi, np.pi, n_samples)
+        # if isinstance(estimator, GaussianMixture):
+        #     likelihoods = self.get_likelihoods(estimator, samples)
+        #     max_likelihood = np.max(likelihoods)
+        # else:
+        #     assert isinstance(estimator, KernelDensity) or isinstance(estimator, VonMisesKDE)
+        log_likelihoods = estimator.score_samples(np.array(samples).reshape(-1, 1))
+        likelihood_argmax = np.argmax(log_likelihoods)
+        max_likelihood_sample = samples[likelihood_argmax]
+        
+        if geometry == 'bond':
+            bounds = [(np.min(values), np.max(values))]
+        elif geometry == 'angle':
+            bounds = [(np.min(values), 180)]
+        else:
+            bounds = [(-np.pi, np.pi)]
+        
+        result: OptimizeResult = minimize(fun=get_neg_log_likelihood, 
+                                            x0=max_likelihood_sample, 
+                                            method='Nelder-Mead',
+                                            bounds=bounds)
+        min_neg_log_likelihood = result.fun
+        max_log_likelihood = -min_neg_log_likelihood
+        max_likelihood = np.exp(max_log_likelihood)
+        
+        # log_likelihoods = estimator.score_samples(np.array(values).reshape(-1, 1))
+        # likelihood_argmax = np.argmax(log_likelihoods)
+        # max_likelihood = np.exp(log_likelihoods[likelihood_argmax])
         return max_likelihood
             
             
@@ -463,7 +704,51 @@ class ReferenceGeometry():
         
         assert geometry in ['bond', 'angle', 'torsion']
         
-        if self.validity_method == 'boundaries':
+        if self.validity_method == 'kernel_density':
+            if geometry == 'bond':
+                kds = self.kernel_densities['bond']
+            elif geometry == 'angle':
+                kds = self.kernel_densities['angle']
+            elif geometry == 'torsion':
+                kds = self.kernel_densities['torsion']
+                value = np.radians(value)
+            else:
+                raise RuntimeError()
+            
+            q_value = np.nan
+            new_pattern = False
+            if geometry_pattern in kds:
+                kd = kds[geometry_pattern]
+                kernel_density = kd.kernel_density
+                log_likelihood = kernel_density.score_samples(np.array(value).reshape(-1, 1))
+                likelihood = np.exp(log_likelihood)
+                q_value = likelihood.item() / kd.max_likelihood
+                
+            else:
+                generalized_pattern = geometry_pattern.generalize() 
+                logging.debug(f'Trying to generalize pattern (outer) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
+                if generalized_pattern in kds:
+                    kd = kds[generalized_pattern]
+                    kernel_density = kd.kernel_density
+                    log_likelihood = kernel_density.score_samples(np.array(value).reshape(-1, 1))
+                    likelihood = np.exp(log_likelihood)
+                    q_value = likelihood.item() / kd.max_likelihood
+                else:
+                    if geometry == 'bond':
+                        new_pattern = True
+                    else:
+                        generalized_pattern = geometry_pattern.generalize(inner_neighbors=True)
+                        logging.debug(f'Trying to generalize pattern (outer + inner) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
+                        if generalized_pattern in kds:
+                            kd = kds[generalized_pattern]
+                            kernel_density = kd.kernel_density
+                            log_likelihood = kernel_density.score_samples(np.array(value).reshape(-1, 1))
+                            likelihood = np.exp(log_likelihood)
+                            q_value = likelihood.item() / kd.max_likelihood
+                        else:
+                            new_pattern = True
+        
+        elif self.validity_method == 'boundaries':
         
             if geometry == 'bond':
                 ranges = self.ranges['bond']

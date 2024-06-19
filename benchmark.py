@@ -12,6 +12,7 @@ from genbench3d.data.source import CSDDrug, CrossDocked
 from genbench3d.sb_model import SBModel, LiGAN, ThreeDSBDD, Pocket2Mol, TargetDiff, DiffSBDD, ResGen
 from genbench3d.data.structure import Protein, Pocket
 from genbench3d.data import ComplexMinimizer
+from genbench3d.utils import preprocess_mols
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -28,9 +29,10 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
 
 train_crossdocked = CrossDocked(subset='train')
 train_ligands = train_crossdocked.get_ligands()
-training_mols = train_ligands
+training_mols = preprocess_mols(train_ligands)
 
 model_name = 'CrossDocked'
+print(model_name, len(training_mols) / len(train_crossdocked.get_split()))
 genbench3D = GenBench3D()
 results = genbench3D.get_results_for_mol_list(mols=training_mols)
 with open(f'results/results_{model_name}.p', 'wb') as f:
@@ -38,9 +40,12 @@ with open(f'results/results_{model_name}.p', 'wb') as f:
 
 csd_drug = CSDDrug()
 csd_drug_ligands = [mol for mol in csd_drug]
+csd_drug_ligands_clean = preprocess_mols(csd_drug_ligands)
 model_name = 'CSDDrug'
+print(model_name, len(csd_drug_ligands_clean) / len(csd_drug.subset_csd_ids))
 genbench3D = GenBench3D()
 results = genbench3D.get_results_for_mol_list(mols=csd_drug_ligands)
+# import pdb;pdb.set_trace()
 with open(f'results/results_{model_name}.p', 'wb') as f:
     pickle.dump(results, f)
 
@@ -49,7 +54,17 @@ training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 training_mols_h = [Chem.AddHs(mol) for mol in training_mols]
 training_cel_h = ConfEnsembleLibrary.from_mol_list(training_mols_h)
 
+model_name = 'CrossDocked_test'
 test_crossdocked = CrossDocked(subset='test')
+test_ligands = test_crossdocked.get_ligands()
+test_mols = preprocess_mols(test_ligands)
+print(model_name, len(test_mols) / len(test_crossdocked.get_split()))
+genbench3D = GenBench3D()
+genbench3D.set_training_cel(training_cel)
+results = genbench3D.get_results_for_mol_list(mols=test_mols)
+with open(f'results/results_{model_name}.p', 'wb') as f:
+    pickle.dump(results, f)
+    
 ligand_filenames = test_crossdocked.get_ligand_filenames()
 
 models: list[SBModel] = [
@@ -66,6 +81,7 @@ for minimize in minimizes:
     for model in tqdm(models):
         logging.info(model.name)
         all_gen_mols = []
+        n_total_mols = 0
         for ligand_filename in tqdm(ligand_filenames):
             original_structure_path = test_crossdocked.get_original_structure_path(ligand_filename)
             native_ligand = test_crossdocked.get_native_ligand(ligand_filename)
@@ -77,13 +93,19 @@ for minimize in minimizes:
             complex_minimizer = ComplexMinimizer(pocket)
             
             gen_mols = model.get_generated_molecules(ligand_filename)
+            n_total_mols += len(gen_mols)
+            gen_mols = preprocess_mols(gen_mols)
             if len(gen_mols) > 0:
+                gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
                 if minimize:
-                    gen_mols_h = [Chem.AddHs(mol) for mol in gen_mols]
                     gen_mols = model.get_minimized_molecules(ligand_filename,
                                                             gen_mols_h,
                                                             complex_minimizer)
+                else:
+                    gen_mols = gen_mols_h
                 all_gen_mols.extend(gen_mols)
+            
+        print(model.name, len(all_gen_mols) / n_total_mols)
             
         genbench3D = GenBench3D()
         if minimize:
@@ -91,7 +113,9 @@ for minimize in minimizes:
         else:
             genbench3D.set_training_cel(training_cel)
         results = genbench3D.get_results_for_mol_list(all_gen_mols,
-                                                      n_total_mols=10000)
+                                                      n_total_mols=n_total_mols)
+        
+        # import pdb;pdb.set_trace()
         
         if minimize:
             results_path = f'results/results_{model.name}_minimized.p'
