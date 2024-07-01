@@ -1,5 +1,5 @@
 benchmark_dirpath: /home/bb596/hdd/genbench3D/
-glide_working_dir: ./glide_working_dir/
+glide_working_dir: /home/bb596/genbench3D/glide_working_dir/
 results_dir: /home/bb596/hdd/genbench3D/results/
 
 pocket_distance_from_ligand: 5.0 # Angstrom

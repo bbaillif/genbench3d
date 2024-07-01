@@ -7,14 +7,14 @@ import os
 
 from tqdm import tqdm
 from rdkit import Chem
-from genbench3d import GenBench3D
-from genbench3d.conf_ensemble import ConfEnsembleLibrary
-from genbench3d.data.source import CSDDrug, CrossDocked
-from genbench3d.sb_model import SBModel, LiGAN, ThreeDSBDD, Pocket2Mol, TargetDiff, DiffSBDD, ResGen
-from genbench3d.data.structure import Protein, Pocket
-from genbench3d.data import ComplexMinimizer
-from genbench3d.utils import preprocess_mols
-from genbench3d.geometry import ReferenceGeometry
+from genbench3D import GenBench3D
+from genbench3D.conf_ensemble import ConfEnsembleLibrary
+from genbench3D.data.source import CSDDrug, CrossDocked
+from genbench3D.sb_model import SBModel, LiGAN, ThreeDSBDD, Pocket2Mol, TargetDiff, DiffSBDD, ResGen
+from genbench3D.data.structure import Protein, Pocket
+from genbench3D.data import ComplexMinimizer
+from genbench3D.utils import preprocess_mols
+from genbench3D.geometry import ReferenceGeometry
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -62,25 +62,25 @@ model_name = 'CrossDocked_train'
 print(model_name, len(training_mols) / len(train_crossdocked.get_split()))
 genbench3D = GenBench3D(reference_geometry=reference_geometry,
                         config=config['genbench3D'])
-# results = genbench3D.get_results_for_mol_list(mols=training_mols)
-# results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
-# with open(results_path, 'wb') as f:
-#     pickle.dump(results, f)
+results = genbench3D.get_results_for_mol_list(mols=training_mols)
+results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
+with open(results_path, 'wb') as f:
+    pickle.dump(results, f)
 
 # Benchmark CSD Drug subset
 csd_drug_ligands = [mol for mol in source]
 csd_drug_ligands_clean = preprocess_mols(csd_drug_ligands)
 model_name = 'CSDDrug'
 print(model_name, len(csd_drug_ligands_clean) / len(source.subset_csd_ids))
-# results = genbench3D.get_results_for_mol_list(mols=csd_drug_ligands_clean)
-# results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
-# with open(results_path, 'wb') as f:
-#     pickle.dump(results, f)
+results = genbench3D.get_results_for_mol_list(mols=csd_drug_ligands_clean)
+results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
+with open(results_path, 'wb') as f:
+    pickle.dump(results, f)
 
-# training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
+training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 
-# training_mols_h = [Chem.AddHs(mol) for mol in training_mols]
-# training_cel_h = ConfEnsembleLibrary.from_mol_list(training_mols_h)
+training_mols_h = [Chem.AddHs(mol) for mol in training_mols]
+training_cel_h = ConfEnsembleLibrary.from_mol_list(training_mols_h)
 
 # Benchmark CrossDocked test set
 model_name = 'CrossDocked_test'
@@ -90,11 +90,11 @@ test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
 test_ligands = test_crossdocked.get_ligands()
 test_mols = preprocess_mols(test_ligands)
 print(model_name, len(test_mols) / len(test_crossdocked.get_split()))
-# genbench3D.set_training_cel(training_cel)
-# results = genbench3D.get_results_for_mol_list(mols=test_mols)
-# results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
-# with open(results_path, 'wb') as f:
-#     pickle.dump(results, f)
+genbench3D.set_training_cel(training_cel)
+results = genbench3D.get_results_for_mol_list(mols=test_mols)
+results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
+with open(results_path, 'wb') as f:
+    pickle.dump(results, f)
     
 ligand_filenames = test_crossdocked.get_ligand_filenames()
 
@@ -151,10 +151,10 @@ for minimize in minimizes:
         print(model.name, len(all_gen_mols) / n_total_mols)
             
         # Run benchmark
-        # if minimize:
-        #     genbench3D.set_training_cel(training_cel_h)
-        # else:
-        #     genbench3D.set_training_cel(training_cel)
+        if minimize:
+            genbench3D.set_training_cel(training_cel_h)
+        else:
+            genbench3D.set_training_cel(training_cel)
         results = genbench3D.get_results_for_mol_list(all_gen_mols,
                                                       n_total_mols=n_total_mols)
         

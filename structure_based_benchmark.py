@@ -9,24 +9,24 @@ import argparse
 
 from rdkit import Chem
 from tqdm import tqdm
-from genbench3d import SBGenBench3D
-from genbench3d.data import ComplexMinimizer
-from genbench3d.data.structure import (Pocket, 
+from genbench3D import SBGenBench3D
+from genbench3D.data import ComplexMinimizer
+from genbench3D.data.structure import (Pocket, 
                                        VinaProtein, 
                                        GlideProtein)
-from genbench3d.conf_ensemble import ConfEnsembleLibrary
-from genbench3d.sb_model import TargetDiff
-from genbench3d.data.source import CrossDocked
-from genbench3d.sb_model import (SBModel,
+from genbench3D.conf_ensemble import ConfEnsembleLibrary
+from genbench3D.sb_model import TargetDiff
+from genbench3D.data.source import CrossDocked
+from genbench3D.sb_model import (SBModel,
                                  LiGAN,
                                  ThreeDSBDD,
                                  Pocket2Mol,
                                  DiffSBDD,
                                  TargetDiff,
                                  ResGen)
-from genbench3d.utils import preprocess_mols
-from genbench3d.geometry import ReferenceGeometry
-from genbench3d.data.source import CSDDrug
+from genbench3D.utils import preprocess_mols
+from genbench3D.geometry import ReferenceGeometry
+from genbench3D.data.source import CSDDrug
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
