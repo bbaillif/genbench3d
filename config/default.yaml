@@ -10,10 +10,10 @@ bin:
   structconvert_path: '/usr/local/shared/schrodinger/current/utilities/structconvert'
 
 data:
-  ligboundconf_path: '/home/bb596/hdd/LigBoundConf/minimized/S2_LigBoundConf_minimized.sdf'
-  csd_drug_subset_path: '/home/bb596/hdd/genbench3D/CSD_Drug_Subset.gcd'
-  crossdocked_path: '/home/bb596/hdd/CrossDocked/'
-  crossdocked_full_data_path: '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/'
+  ligboundconf_path: '/home/bb596/hdd/LigBoundConf/minimized/S2_LigBoundConf_minimized.sdf' # https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip
+  csd_drug_subset_path: '/home/bb596/hdd/genbench3D/CSD_Drug_Subset.gcd' # https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip
+  crossdocked_path: '/home/bb596/hdd/CrossDocked/' # https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM
+  crossdocked_full_data_path: '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/' # http://bits.csb.pitt.edu/files/crossdock2020/
   crossdocked_pocket10_path: '/home/bb596/hdd/CrossDocked/crossdocked_pocket10/'
   crossdocked_splits_pt_path: '/home/bb596/hdd/CrossDocked/split_by_name.pt'
   crossdocked_splits_p_path: '/home/bb596/hdd/CrossDocked/split_by_name.p'

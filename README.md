@@ -24,10 +24,6 @@ conda activate genbench3d
 pip install -e . # install genbench3d in current environment
 ```
 
-TO DOWNLOAD:
-CrossDocked (and splits)
-CSD Drug subset (or LigBoundConf)
-
 Before using GenBench3D, you must define working relative/absolute paths in the config/default.yaml file.
 For the reference data, we used the CSD Drug subset that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip), but you can use any list of molecules you want. We recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
 The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3D environment.

@@ -58,7 +58,8 @@ class VinaScorer():
                          n_cpus,
                          seed,
                          size_border)
-        vina_scorer.set_box_from_ligand(ligand)
+        vina_scorer.set_box_from_ligand(ligand,
+                                        size_border=size_border)
         return vina_scorer
         
     
