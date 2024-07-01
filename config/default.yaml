@@ -5,7 +5,7 @@ results_dir: /home/bb596/hdd/genbench3D/results/
 pocket_distance_from_ligand: 5.0 # Angstrom
 
 bin:
-  prepare_receptor_bin_path: '/home/bb596/ADFRsuite/bin/prepare_receptor'
+  prepare_receptor_bin_path: '/home/bb596/ADFRsuite/bin/prepare_receptor' # https://ccsb.scripps.edu/adfr/downloads/
   glide_path: '/usr/local/shared/schrodinger/current/glide'
   structconvert_path: '/usr/local/shared/schrodinger/current/utilities/structconvert'
 

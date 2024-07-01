@@ -116,7 +116,7 @@ class SBGenBench3D(GenBench3D):
             self.results = {}
         
         if valid_only:
-            valid_conf_ids = self.validity3D_csd.valid_conf_ids
+            valid_conf_ids = self.validity3D.valid_conf_ids
             # print(len(cel))
             cel = GeneratedCEL.get_cel_subset(cel, 
                                               subset_conf_ids=valid_conf_ids)

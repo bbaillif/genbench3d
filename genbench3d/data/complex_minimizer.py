@@ -17,7 +17,7 @@ class ComplexMinimizer():
         """
         self.pocket = pocket
         self.n_steps = config['n_steps']
-        self.distance_constraint_A = config['distance_constraint']
+        self.distance_constraint = config['distance_constraint']
     
     
     def minimize_ligand(self,
@@ -47,7 +47,7 @@ class ComplexMinimizer():
             for idx in range(self.pocket.mol.GetNumAtoms(), complx.GetNumAtoms()):
                 atom = complx.GetAtomWithIdx(idx)
                 if atom.GetSymbol() != 'H':
-                    mmff.MMFFAddPositionConstraint(idx, self.distance_constraint_A, 999.0)
+                    mmff.MMFFAddPositionConstraint(idx, self.distance_constraint, 999.0)
 
             # get the initial energy
             E_init = mmff.CalcEnergy()

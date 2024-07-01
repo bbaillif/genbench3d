@@ -25,7 +25,9 @@ pip install -e . # install genbench3d in current environment
 ```
 
 Before using GenBench3D, you must define working relative/absolute paths in the config/default.yaml file.
-For the reference data, we used the CSD Drug subset that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip), but you can use any list of molecules you want. We recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
+
+For the reference data, we used the CSD Drug subset that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip) along with the CSD Python API to query the September 2023 release of the CSD, but you can use any list of molecules you want. We recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
+
 The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3D environment.
 
 ## Usage
@@ -107,15 +109,17 @@ results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
                                                 n_total_mols=n_total_mols)
 ```
 
-Additionnally, you can relax molecules inside the binding pocket (i.e. local energy minimization using MMFF94s forcefield, keeping protein atom fixed and allowing up to 1 Angstrom ligand heavy atom deviation) with the ComplexMinimizer:
+Additionnally, you can relax molecules inside the binding pocket (i.e. local energy minimization using MMFF94s forcefield, keeping protein atom fixed and allowing up to 1 Angstrom ligand heavy atom deviation, maximum 1000 steps) with the ComplexMinimizer:
 
 ```python
 from genbench3d.data import ComplexMinimizer
+# mol is a RDKit molecule with a single conformer
 complex_minimizer = ComplexMinimizer(pocket,
                                     config=config['minimization'])
+mini_mol = complex_minimizer.minimize_ligand(mol)
 ```
 
-You can then aggregate all the compiled metrics:
+Aggregated compiled metrics can be computed for the benchmark results:
 ```python
 import numpy as np
 import pandas as pd
@@ -172,7 +176,7 @@ print(summary)
 
 ## Set of generated molecules
 
-Will be uploaded soon to reproduce poster/presentation results
+You can download the data used in the manuscript on [figshare](https://figshare.com/articles/dataset/Data_for_Benchmarking_structure-based_3D_generative_models_with_GenBench3D/26139496)
 
 ## Previous versions details
 
