@@ -1,4 +1,4 @@
-benchmark_dir: /home/bb596/hdd/genbench3D/
+benchmark_dirpath: /home/bb596/hdd/genbench3D/
 glide_working_dir: ./glide_working_dir/
 results_dir: /home/bb596/hdd/genbench3D/results/
 
@@ -28,7 +28,7 @@ genbench3D:
   consider_hydrogens: False
   include_torsions_in_validity3D: False
   add_minimized_docking_scores: True
-  overwrite_results: False
+  overwrite_results: True
 
 models:
   targetdiff_results_filepath: '/home/bb596/hdd/genbench3D/targetdiff/targetdiff_vina_docked.p'
@@ -39,7 +39,7 @@ models:
   resgen_gen_dirpath: /home/bb596/hdd/genbench3D/ResGen/test_set/'
 
 minimization:
-  distance_constraint_A: 1.0 # Angstrom
+  distance_constraint: 1.0 # Angstrom
   n_steps: 1000
 
 vina:

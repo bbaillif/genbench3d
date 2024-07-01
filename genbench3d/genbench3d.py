@@ -33,12 +33,12 @@ class GenBench3D():
                  ) -> None:
         
         self.reference_geometry = reference_geometry
-        self.tfd_threshold = config.tfd_threshold
-        self.q_value_threshold = config.q_value_threshold
-        self.steric_clash_safety_ratio = config.steric_clash_safety_ratio
-        self.maximum_ring_plane_distance = config.maximum_ring_plane_distance
-        self.include_torsions_in_validity3D = config.include_torsions_in_validity3D
-        self.consider_hydrogens = config.consider_hydrogens
+        self.tfd_threshold = config['tfd_threshold']
+        self.q_value_threshold = config['q_value_threshold']
+        self.steric_clash_safety_ratio = config['steric_clash_safety_ratio']
+        self.maximum_ring_plane_distance = config['maximum_ring_plane_distance']
+        self.include_torsions_in_validity3D = config['include_torsions_in_validity3D']
+        self.consider_hydrogens = config['consider_hydrogens']
         
         self.training_cel = None
         
@@ -67,7 +67,6 @@ class GenBench3D():
                                                             MaxTrainSim()]
         
         self.validity3D = Validity3D(reference_geometry=self.reference_geometry,
-                                        tfd_threshold=self.tfd_threshold,
                                         q_value_threshold=self.q_value_threshold,
                                         steric_clash_safety_ratio=self.steric_clash_safety_ratio,
                                         maximum_ring_plane_distance=self.maximum_ring_plane_distance,

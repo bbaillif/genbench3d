@@ -33,7 +33,7 @@ class SBGenBench3D(GenBench3D):
         
         self.steric_clash = StericClash(pocket,
                                         clash_safety_ratio=config['steric_clash_safety_ratio'],
-                                        consider_hs=config['consider_hs'])
+                                        consider_hs=config['consider_hydrogens'])
         self.distance_to_centroid = DistanceToNativeCentroid(pocket)
         self.sb_metrics: list[Metric] = [
                                         self.steric_clash,

@@ -14,13 +14,9 @@ class SBModel(ABC):
     
     def __init__(self,
                  minimized_path: str,
-                 name: str,
-                 crossdocked_subset: str = 'test') -> None:
-        assert crossdocked_subset in CROSSDOCKED_SUBSETS
-        self.name = name
+                 name: str,) -> None:
         self.minimized_path = minimized_path
-        
-        self.crossdocked = CrossDocked(subset=crossdocked_subset)
+        self.name = name
     
     @abstractmethod
     def get_generated_molecules(self,
@@ -63,6 +59,7 @@ class SBModel(ABC):
             
         return mini_gen_mols
 
+
 class TargetDiff(SBModel):
     
     def __init__(self,
@@ -70,8 +67,8 @@ class TargetDiff(SBModel):
                  minimized_path: str,
                  name: str = 'TargetDiff',
                  ) -> None:
-        super().__init__(name,
-                         minimized_path)
+        super().__init__(minimized_path=minimized_path,
+                         name=name,)
         self.results_path = results_path
         with open(results_path, 'rb') as f:
             self.results = pickle.load(f)
@@ -106,8 +103,8 @@ class ThreeDSBDD(SBModel):
                  minimized_path: str,
                  name: str = '3D_SBDD',
                  ) -> None:
-        super().__init__(name,
-                         minimized_path)
+        super().__init__(minimized_path=minimized_path,
+                         name=name,)
         self.gen_path = gen_path
     
     def get_generated_molecules(self, 
@@ -132,8 +129,8 @@ class Pocket2Mol(SBModel):
                  minimized_path: str,
                  name: str = 'Pocket2Mol',
                  ) -> None:
-        super().__init__(name,
-                         minimized_path)
+        super().__init__(minimized_path=minimized_path,
+                         name=name,)
         self.gen_path = gen_path
     
     def get_generated_molecules(self, 
@@ -160,8 +157,8 @@ class DiffSBDD(SBModel):
                  minimized_path: str,
                  name: str = 'DiffSBDD',
                  ) -> None:
-        super().__init__(name,
-                         minimized_path)
+        super().__init__(minimized_path=minimized_path,
+                         name=name,)
         self.gen_path = gen_path
     
     def get_generated_molecules(self, 
@@ -189,11 +186,13 @@ class LiGAN(SBModel):
     def __init__(self,
                  gen_path: str,
                  minimized_path: str,
+                 cross_docked: CrossDocked,
                  name: str = 'LiGAN',
                  ) -> None:
-        super().__init__(name,
-                         minimized_path)
+        super().__init__(minimized_path=minimized_path,
+                         name=name,)
         self.gen_path = gen_path
+        self.crossdocked = cross_docked
     
     def get_generated_molecules(self, 
                                 ligand_filename: str):
@@ -228,8 +227,8 @@ class ResGen(SBModel):
                  minimized_path: str,
                  name: str = 'ResGen',
                  ) -> None:
-        super().__init__(name,
-                         minimized_path)
+        super().__init__(minimized_path=minimized_path,
+                         name=name,)
         self.gen_path = gen_path
     
     def get_generated_molecules(self, 

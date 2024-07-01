@@ -37,7 +37,7 @@ simplefilter(action='ignore', category=DeprecationWarning)
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)s',
                     datefmt='%d/%m/%Y %I:%M:%S %p',
                     filemode='w',
-                    filename='structure_based_benchmark_v2.log', 
+                    filename='structure_based_benchmark.log', 
                     encoding='utf-8', 
                     level=logging.INFO)
 
@@ -49,7 +49,7 @@ parser.add_argument("config_path",
 args = parser.parse_args()
 
 config = yaml.safe_load(open(args.config_path, 'r'))
-overwrite = config['genbench3d']['overwrite_results']
+overwrite = config['genbench3D']['overwrite_results']
 
 results_dirpath = config['results_dir']
 if not os.path.exists(results_dirpath):
@@ -59,10 +59,10 @@ minimized_path = config['data']['minimized_path']
 if not os.path.exists(minimized_path):
     os.mkdir(minimized_path)
 
-source = CSDDrug(subset_path=config.csd_drug_subset_path)
+source = CSDDrug(subset_path=config['data']['csd_drug_subset_path'])
 reference_geometry = ReferenceGeometry(source=source,
                                        root=config['benchmark_dirpath'],
-                                       minimum_pattern_values=config['minimum_pattern_values'],)
+                                       minimum_pattern_values=config['genbench3D']['minimum_pattern_values'],)
 
 train_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
                                 config=config['data'],
@@ -78,7 +78,8 @@ ligand_filenames = test_crossdocked.get_ligand_filenames()
 
 models: list[SBModel] = [
                         LiGAN(gen_path=config['models']['ligan_gen_dirpath'],
-                              minimized_path=config['data']['minimized_path']),
+                              minimized_path=config['data']['minimized_path'],
+                              cross_docked=test_crossdocked),
                         ThreeDSBDD(gen_path=config['models']['threedsbdd_gen_dirpath'],
                                    minimized_path=config['data']['minimized_path']),
                         Pocket2Mol(gen_path=config['models']['pocket2mol_gen_dirpath'],
@@ -133,7 +134,7 @@ try:
                     set_name = 'raw'
             
                 sbgenbench3D = SBGenBench3D(reference_geometry=reference_geometry,
-                                            config=config['genbench3d'],
+                                            config=config['genbench3D'],
                                             pocket=pocket,
                                             native_ligand=native_ligand)
                 sbgenbench3D.setup_vina(vina_protein,

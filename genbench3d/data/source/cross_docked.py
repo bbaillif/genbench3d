@@ -27,7 +27,7 @@ class CrossDocked(DataSource):
         self.pocket_path = config['crossdocked_pocket10_path']
         self.data_path = config['crossdocked_full_data_path']
         self.split_path = config['crossdocked_splits_p_path']
-        self.minimized_path = config['minimizes_path']
+        self.minimized_path = config['minimized_path']
         self.subset = subset
         
         self.ligands_path = os.path.join(self.root, f'crossdocked_ligands_{self.subset}.sdf')
