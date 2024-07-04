@@ -185,17 +185,17 @@ class LiGAN(SBModel):
     def __init__(self,
                  gen_path: str,
                  minimized_path: str,
-                 cross_docked: CrossDocked,
+                 ligand_filenames: list[str],
                  name: str = 'LiGAN',
                  ) -> None:
         super().__init__(minimized_path=minimized_path,
                          name=name,)
         self.gen_path = gen_path
-        self.crossdocked = cross_docked
+        self.ligand_filenames = ligand_filenames
     
     def get_generated_molecules(self, 
                                 ligand_filename: str):
-        i = self.crossdocked.get_filename_i(ligand_filename)
+        i = self.ligand_filenames.index(ligand_filename)
         gen_mols_filepath = os.path.join(self.gen_path, f'Generated_{i}_lig_gen_fit_add.sdf.gz')
         if not os.path.exists(gen_mols_filepath):
             logging.warning(f'Ligand filename {ligand_filename} not found in LiGAN results')

@@ -76,7 +76,7 @@ test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
                                 config=config['data'],
                                 subset='test')
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
-with open('test_set/ligand_filenames.txt', 'w') as f:
+with open('test_set/ligand_filenames.txt', 'r') as f:
     ligand_filenames = f.readlines()
 
 models: list[SBModel] = [

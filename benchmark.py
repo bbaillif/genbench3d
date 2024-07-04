@@ -96,7 +96,7 @@ results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)
     
-with open('test_set/ligand_filenames.txt', 'w') as f:
+with open('test_set/ligand_filenames.txt', 'r') as f:
     ligand_filenames = f.readlines()
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
 
