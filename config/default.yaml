@@ -18,6 +18,7 @@ data:
   crossdocked_splits_pt_path: '/home/bb596/hdd/CrossDocked/split_by_name.pt'
   crossdocked_splits_p_path: '/home/bb596/hdd/CrossDocked/split_by_name.p'
   minimized_path: '/home/bb596/hdd/genbench3D/minimized/'
+  test_set_path: '/home/bb596/genbench3D/test_set/'
 
 genbench3D:
   minimum_pattern_values: 50

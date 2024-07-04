@@ -42,10 +42,11 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
                     level=logging.INFO)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("config_path", 
+parser.add_argument("--config_path", 
                     default='config/default.yaml', 
                     type=str,
-                    help="Path to config file.")
+                    help="Path to config file.",
+                    required=False)
 args = parser.parse_args()
 
 config = yaml.safe_load(open(args.config_path, 'r'))
@@ -74,12 +75,14 @@ training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
                                 config=config['data'],
                                 subset='test')
-ligand_filenames = test_crossdocked.get_ligand_filenames()
+# ligand_filenames = test_crossdocked.get_ligand_filenames()
+with open('test_set/ligand_filenames.txt', 'w') as f:
+    ligand_filenames = f.readlines()
 
 models: list[SBModel] = [
                         LiGAN(gen_path=config['models']['ligan_gen_dirpath'],
                               minimized_path=config['data']['minimized_path'],
-                              cross_docked=test_crossdocked),
+                              ligand_filenames=ligand_filenames),
                         ThreeDSBDD(gen_path=config['models']['threedsbdd_gen_dirpath'],
                                    minimized_path=config['data']['minimized_path']),
                         Pocket2Mol(gen_path=config['models']['pocket2mol_gen_dirpath'],
@@ -106,10 +109,20 @@ try:
             d_target = {}
             
             # We need native_ligand to setup pockets for scoring
-            native_ligand = test_crossdocked.get_native_ligand(ligand_filename)
+            # native_ligand = test_crossdocked.get_native_ligand(ligand_filename)
+            native_ligand_path = os.path.join(config['data']['test_set_path'], 
+                                            target_dirname,
+                                            real_ligand_filename)
+            native_ligand = [mol 
+                             for mol in Chem.SDMolSupplier(native_ligand_path, 
+                                                           removeHs=False)][0]
             native_ligand = Chem.AddHs(native_ligand, addCoords=True)
             
-            original_structure_path = test_crossdocked.get_original_structure_path(ligand_filename)
+            # original_structure_path = test_crossdocked.get_original_structure_path(ligand_filename)
+            pdb_filename = f'{real_ligand_filename[:10]}.pdb'
+            original_structure_path = os.path.join(config['data']['test_set_path'], 
+                                                   target_dirname,
+                                                   pdb_filename)
             
             vina_protein = VinaProtein(pdb_filepath=original_structure_path,
                                        prepare_receptor_bin_path=config['bin']['prepare_receptor_bin_path'],)
@@ -128,8 +141,27 @@ try:
             
                 if minimize:
                     set_name = 'minimized'
-                    native_ligand = test_crossdocked.get_minimized_native(ligand_filename,
-                                                                          complex_minimizer)
+                    # native_ligand = test_crossdocked.get_minimized_native(ligand_filename,
+                    #                                                       complex_minimizer)
+                    minimized_target_path = os.path.join(config['data']['minimized_path'], target_dirname)
+                    if not os.path.exists(minimized_target_path):
+                        os.mkdir(minimized_target_path)
+                    minimized_filename = 'generated_' + real_ligand_filename.replace('.sdf', 
+                                                                        f'_native_minimized.sdf')
+                    minimized_filepath = os.path.join(minimized_target_path,
+                                                        minimized_filename)
+                    
+                    # Minimize native ligand
+                    if not os.path.exists(minimized_filepath):
+                        logging.info(f'Minimized native ligand in {minimized_filepath}')
+                        mini_native_ligand = complex_minimizer.minimize_ligand(native_ligand)
+                        with Chem.SDWriter(minimized_filepath) as writer:
+                            writer.write(mini_native_ligand)
+                    else:
+                        logging.info(f'Loading minimized native ligand from {minimized_filepath}')
+                        mini_native_ligand = Chem.SDMolSupplier(minimized_filepath, removeHs=False)[0]
+                        
+                    native_ligand = mini_native_ligand
                 else:
                     set_name = 'raw'
             
@@ -192,6 +224,8 @@ try:
                                 pickle.dump(d_model, f)
         
         except Exception as e:
+            print(str(e))
+            print(type(e))
             logging.warning(f'Something went wrong for ligand {ligand_filename}: {e}')
             # import pdb;pdb.set_trace()
         

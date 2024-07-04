@@ -96,12 +96,14 @@ results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)
     
-ligand_filenames = test_crossdocked.get_ligand_filenames()
+with open('test_set/ligand_filenames.txt', 'w') as f:
+    ligand_filenames = f.readlines()
+# ligand_filenames = test_crossdocked.get_ligand_filenames()
 
 models: list[SBModel] = [
                         LiGAN(gen_path=config['models']['ligan_gen_dirpath'],
                               minimized_path=config['data']['minimized_path'],
-                              cross_docked=test_crossdocked),
+                              ligand_filenames=ligand_filenames),
                         ThreeDSBDD(gen_path=config['models']['threedsbdd_gen_dirpath'],
                                    minimized_path=config['data']['minimized_path']),
                         Pocket2Mol(gen_path=config['models']['pocket2mol_gen_dirpath'],
@@ -124,7 +126,11 @@ for minimize in minimizes:
         all_gen_mols = []
         n_total_mols = 0
         for ligand_filename in tqdm(ligand_filenames):
-            original_structure_path = test_crossdocked.get_original_structure_path(ligand_filename)
+            target_dirname, real_ligand_filename = ligand_filename.split('/')
+            pdb_filename = f'{real_ligand_filename[:10]}.pdb'
+            original_structure_path = os.path.join(config['data']['test_set_path'], 
+                                                   target_dirname,
+                                                   pdb_filename)
             native_ligand = test_crossdocked.get_native_ligand(ligand_filename)
             native_ligand = Chem.AddHs(native_ligand, addCoords=True)
             
