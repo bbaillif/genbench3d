@@ -78,6 +78,7 @@ test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
 with open('test_set/ligand_filenames.txt', 'r') as f:
     ligand_filenames = f.readlines()
+ligand_filenames = [ligand_filename.strip() for ligand_filename in ligand_filenames]
 
 models: list[SBModel] = [
                         LiGAN(gen_path=config['models']['ligan_gen_dirpath'],

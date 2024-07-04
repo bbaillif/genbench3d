@@ -98,6 +98,7 @@ with open(results_path, 'wb') as f:
     
 with open('test_set/ligand_filenames.txt', 'r') as f:
     ligand_filenames = f.readlines()
+ligand_filenames = [ligand_filename.strip() for ligand_filename in ligand_filenames]
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
 
 models: list[SBModel] = [
@@ -131,7 +132,12 @@ for minimize in minimizes:
             original_structure_path = os.path.join(config['data']['test_set_path'], 
                                                    target_dirname,
                                                    pdb_filename)
-            native_ligand = test_crossdocked.get_native_ligand(ligand_filename)
+            native_ligand_path = os.path.join(config['data']['test_set_path'], 
+                                            target_dirname,
+                                            real_ligand_filename)
+            native_ligand = [mol 
+                             for mol in Chem.SDMolSupplier(native_ligand_path, 
+                                                           removeHs=False)][0]
             native_ligand = Chem.AddHs(native_ligand, addCoords=True)
             
             protein = Protein(pdb_filepath=original_structure_path)
