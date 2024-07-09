@@ -20,7 +20,7 @@ from rdkit.DataStructs.cDataStructs import ExplicitBitVect
 from rdkit.Chem.TorsionFingerprints import GetTFDMatrix
 
 from scipy.spatial.distance import squareform
-from genbench3D.utils import get_full_matrix_from_tril
+from genbench3d.utils import get_full_matrix_from_tril
 
 # These are legacy behaviour from previous work when CEL needed to be saved for faster processing
 BIO_CONF_DIRNAME = 'generated_molecules'
