@@ -168,18 +168,18 @@ try:
                 else:
                     set_name = 'raw'
             
-                sbgenbench3d = SBGenBench3D(reference_geometry=reference_geometry,
+                sb_benchmark = SBGenBench3D(reference_geometry=reference_geometry,
                                             config=config['genbench3d'],
                                             pocket=pocket,
                                             native_ligand=native_ligand)
-                sbgenbench3d.setup_vina(vina_protein,
+                sb_benchmark.setup_vina(vina_protein,
                                         config['vina'],
                                        add_minimized=True)
-                sbgenbench3d.setup_glide(glide_protein,
+                sb_benchmark.setup_glide(glide_protein,
                                          glide_path=config['bin']['glide_path'],
                                          add_minimized=True)
-                sbgenbench3d.setup_gold_plp(vina_protein)
-                sbgenbench3d.set_training_cel(training_cel)
+                sb_benchmark.setup_gold_plp(vina_protein)
+                sb_benchmark.set_training_cel(training_cel)
             
                 for model in tqdm(models):
                     
@@ -209,7 +209,7 @@ try:
                             d_model = {}
                         
                             logging.info(set_name)
-                            results = sbgenbench3d.get_results_for_mol_list(mols=gen_mols,
+                            results = sb_benchmark.get_results_for_mol_list(mols=gen_mols,
                                                                             n_total_mols=n_total_mols,
                                                                             do_conf_analysis=False)
                             
@@ -217,7 +217,7 @@ try:
                             
                             # Valid only results
                             logging.info(f'{set_name}_valid')
-                            results = sbgenbench3d.get_results_for_mol_list(mols=gen_mols,
+                            results = sb_benchmark.get_results_for_mol_list(mols=gen_mols,
                                                                             n_total_mols=n_total_mols,
                                                                             do_conf_analysis=True,
                                                                             valid_only=True)

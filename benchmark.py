@@ -56,7 +56,7 @@ reference_geometry = ReferenceGeometry(source=source,
                                        root=config['benchmark_dirpath'],
                                        minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
 
-genbench3d = GenBench3D(reference_geometry=reference_geometry,
+benchmark = GenBench3D(reference_geometry=reference_geometry,
                         config=config['genbench3d'])
 
 training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
@@ -136,10 +136,10 @@ for minimize in minimizes:
             
         # Run benchmark
         if minimize:
-            genbench3d.set_training_cel(training_cel_h)
+            benchmark.set_training_cel(training_cel_h)
         else:
-            genbench3d.set_training_cel(training_cel)
-        results = genbench3d.get_results_for_mol_list(all_gen_mols,
+            benchmark.set_training_cel(training_cel)
+        results = benchmark.get_results_for_mol_list(all_gen_mols,
                                                       n_total_mols=n_total_mols)
         
         # Save results

@@ -28,7 +28,7 @@ Before using GenBench3D, you must define working relative/absolute paths in the 
 
 For the reference data, we used the CSD Drug subset that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip) along with the CSD Python API to query the September 2023 release of the CSD, but you can use any list of molecules you want. We recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
 
-The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3D environment.
+The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3d environment.
 
 ## Usage
 
@@ -46,7 +46,7 @@ from genbench3d.geometry import ReferenceGeometry
 
 ligboundconf_path = config['data']['ligboundconf_path'] # Set accordingly
 source = LigBoundConf(ligands_path=ligboundconf_path)
-reference_geometry = ReferenceGeometry(source=source, root=config['benchmark_dirpath'], minimum_pattern_values=config['genbench3D']['minimum_pattern_values'],)
+reference_geometry = ReferenceGeometry(source=source, root=config['benchmark_dirpath'], minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
 ```
 The root argument is used to save the values and kernel densities for the extracted reference geometry, and the minimum pattern values is the number of values required for a pattern to have its kernel density computed (if lower than 50, the default behaviour during validity3D evaluation is to simplify the pattern, and if simplified, to consider the geometry as valid in the absence of sufficient data)
 
@@ -54,9 +54,9 @@ The main usage is to compute all metrics from a list of RDKit molecules `mol_lis
 ```python
 from genbench3d import GenBench3D
 # mol_list is a list of RDKit molecules
-genbench3D = GenBench3D(reference_geometry=reference_geometry,
-                        config=config['genbench3D'])
-results = genbench3D.get_results_for_mol_list(mol_list)
+benchmark = GenBench3D(reference_geometry=reference_geometry,
+                        config=config['genbench3d'])
+results = benchmark.get_results_for_mol_list(mol_list)
 ```
 
 Under the hood, the GenBench3D is transforming the molecule list (generated molecules or training molecules) into a `ConfEnsembleLibrary`, a structure that groups the conformations of the same molecule (i.e. molecule topological graph and stereochemistry) into unique `ConfEnsemble` (wrapper around a single RDKit molecule having multiple Conformer), under a default name that is the SMILES representation
@@ -93,19 +93,19 @@ glide_protein = GlideProtein(pdb_filepath=vina_protein.protein_clean_filepath,
 pocket = Pocket(pdb_filepath=vina_protein.protein_clean_filepath, 
                 native_ligand=native_ligand,
                 distance_from_ligand=config['pocket_distance_from_ligand'])
-sbgenbench3D = SBGenBench3D(reference_geometry=reference_geometry,
+sb_benchmark = SBGenBench3D(reference_geometry=reference_geometry,
                             config=config['genbench3D'],
                             pocket=pocket,
                             native_ligand=native_ligand)
-sbgenbench3D.setup_vina(vina_protein,
+sb_benchmark.setup_vina(vina_protein,
                         config['vina'],
                         add_minimized=True)
-sbgenbench3D.setup_glide(glide_protein,
+sb_benchmark.setup_glide(glide_protein,
                             glide_path=config['bin']['glide_path'],
                             add_minimized=True)
-sbgenbench3D.setup_gold_plp(vina_protein)
-sbgenbench3D.set_training_cel(training_cel)
-results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
+sb_benchmark.setup_gold_plp(vina_protein)
+sb_benchmark.set_training_cel(training_cel)
+results = sb_benchmark.get_results_for_mol_list(mols=gen_mols,
                                                 n_total_mols=n_total_mols)
 ```
 
@@ -191,6 +191,7 @@ ase_reader = ASEDBReader(ase_db_path)
 
 This reader is directly embedded in the benchmark:
 ```python
-benchmark = GenBench3D()
+benchmark = GenBench3D(reference_geometry=reference_geometry,
+                        config=config['genbench3d'])
 metrics = benchmark.get_metrics_for_ase_db(filepath=ase_db_path,
                                             cel_name='generated_molecules')

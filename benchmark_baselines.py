@@ -56,9 +56,9 @@ reference_geometry = ReferenceGeometry(source=source,
 # Benchmark CrossDocked training set
 model_name = 'CrossDocked_train'
 print(model_name, len(training_mols) / len(train_crossdocked.get_split()))
-genbench3d = GenBench3D(reference_geometry=reference_geometry,
+benchmark = GenBench3D(reference_geometry=reference_geometry,
                         config=config['genbench3d'])
-results = genbench3d.get_results_for_mol_list(mols=training_mols)
+results = benchmark.get_results_for_mol_list(mols=training_mols)
 results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)
@@ -68,7 +68,7 @@ csd_drug_ligands = [mol for mol in source]
 csd_drug_ligands_clean = preprocess_mols(csd_drug_ligands)
 model_name = 'CSDDrug'
 print(model_name, len(csd_drug_ligands_clean) / len(source.subset_csd_ids))
-results = genbench3d.get_results_for_mol_list(mols=csd_drug_ligands_clean)
+results = benchmark.get_results_for_mol_list(mols=csd_drug_ligands_clean)
 results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)
@@ -86,8 +86,8 @@ test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
 test_ligands = test_crossdocked.get_ligands()
 test_mols = preprocess_mols(test_ligands)
 print(model_name, len(test_mols) / len(test_crossdocked.get_split()))
-genbench3d.set_training_cel(training_cel)
-results = genbench3d.get_results_for_mol_list(mols=test_mols)
+benchmark.set_training_cel(training_cel)
+results = benchmark.get_results_for_mol_list(mols=test_mols)
 results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)
