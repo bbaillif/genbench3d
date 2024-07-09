@@ -6,11 +6,11 @@ import os
 
 
 from rdkit import Chem
-from genbench3D import GenBench3D
-from genbench3D.conf_ensemble import ConfEnsembleLibrary
-from genbench3D.data.source import CSDDrug, CrossDocked
-from genbench3D.utils import preprocess_mols
-from genbench3D.geometry import ReferenceGeometry
+from genbench3d import GenBench3D
+from genbench3d.conf_ensemble import ConfEnsembleLibrary
+from genbench3d.data.source import CSDDrug, CrossDocked
+from genbench3d.utils import preprocess_mols
+from genbench3d.geometry import ReferenceGeometry
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -26,7 +26,7 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
                     level=logging.INFO)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("config_path", 
+parser.add_argument("--config_path", 
                     default='config/default.yaml', 
                     type=str,
                     help="Path to config file.")
@@ -51,14 +51,14 @@ training_mols = preprocess_mols(train_ligands)
 source = CSDDrug(subset_path=config['data']['csd_drug_subset_path'])
 reference_geometry = ReferenceGeometry(source=source,
                                        root=config['benchmark_dirpath'],
-                                       minimum_pattern_values=config['genbench3D']['minimum_pattern_values'],)
+                                       minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
 
 # Benchmark CrossDocked training set
 model_name = 'CrossDocked_train'
 print(model_name, len(training_mols) / len(train_crossdocked.get_split()))
-genbench3D = GenBench3D(reference_geometry=reference_geometry,
-                        config=config['genbench3D'])
-results = genbench3D.get_results_for_mol_list(mols=training_mols)
+genbench3d = GenBench3D(reference_geometry=reference_geometry,
+                        config=config['genbench3d'])
+results = genbench3d.get_results_for_mol_list(mols=training_mols)
 results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)
@@ -68,7 +68,7 @@ csd_drug_ligands = [mol for mol in source]
 csd_drug_ligands_clean = preprocess_mols(csd_drug_ligands)
 model_name = 'CSDDrug'
 print(model_name, len(csd_drug_ligands_clean) / len(source.subset_csd_ids))
-results = genbench3D.get_results_for_mol_list(mols=csd_drug_ligands_clean)
+results = genbench3d.get_results_for_mol_list(mols=csd_drug_ligands_clean)
 results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)
@@ -86,8 +86,8 @@ test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
 test_ligands = test_crossdocked.get_ligands()
 test_mols = preprocess_mols(test_ligands)
 print(model_name, len(test_mols) / len(test_crossdocked.get_split()))
-genbench3D.set_training_cel(training_cel)
-results = genbench3D.get_results_for_mol_list(mols=test_mols)
+genbench3d.set_training_cel(training_cel)
+results = genbench3d.get_results_for_mol_list(mols=test_mols)
 results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
 with open(results_path, 'wb') as f:
     pickle.dump(results, f)

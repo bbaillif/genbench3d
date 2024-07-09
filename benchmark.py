@@ -4,17 +4,16 @@ import logging
 import argparse
 import os
 
-
 from tqdm import tqdm
 from rdkit import Chem
-from genbench3D import GenBench3D
-from genbench3D.conf_ensemble import ConfEnsembleLibrary
-from genbench3D.data.source import CSDDrug, CrossDocked
-from genbench3D.sb_model import SBModel, LiGAN, ThreeDSBDD, Pocket2Mol, TargetDiff, DiffSBDD, ResGen
-from genbench3D.data.structure import Protein, Pocket
-from genbench3D.data import ComplexMinimizer
-from genbench3D.utils import preprocess_mols
-from genbench3D.geometry import ReferenceGeometry
+from genbench3d import GenBench3D
+from genbench3d.conf_ensemble import ConfEnsembleLibrary
+from genbench3d.data.source import CSDDrug, CrossDocked
+from genbench3d.sb_model import SBModel, LiGAN, ThreeDSBDD, Pocket2Mol, TargetDiff, DiffSBDD, ResGen
+from genbench3d.data.structure import Protein, Pocket
+from genbench3d.data import ComplexMinimizer
+from genbench3d.utils import preprocess_mols
+from genbench3d.geometry import ReferenceGeometry
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -30,7 +29,7 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
                     level=logging.INFO)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("config_path", 
+parser.add_argument("--config_path", 
                     default='config/default.yaml', 
                     type=str,
                     help="Path to config file.")
@@ -55,56 +54,29 @@ training_mols = preprocess_mols(train_ligands)
 source = CSDDrug(subset_path=config['data']['csd_drug_subset_path'])
 reference_geometry = ReferenceGeometry(source=source,
                                        root=config['benchmark_dirpath'],
-                                       minimum_pattern_values=config['genbench3D']['minimum_pattern_values'],)
+                                       minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
 
-# Benchmark CrossDocked training set
-model_name = 'CrossDocked_train'
-print(model_name, len(training_mols) / len(train_crossdocked.get_split()))
-genbench3D = GenBench3D(reference_geometry=reference_geometry,
-                        config=config['genbench3D'])
-results = genbench3D.get_results_for_mol_list(mols=training_mols)
-results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
-with open(results_path, 'wb') as f:
-    pickle.dump(results, f)
-
-# Benchmark CSD Drug subset
-csd_drug_ligands = [mol for mol in source]
-csd_drug_ligands_clean = preprocess_mols(csd_drug_ligands)
-model_name = 'CSDDrug'
-print(model_name, len(csd_drug_ligands_clean) / len(source.subset_csd_ids))
-results = genbench3D.get_results_for_mol_list(mols=csd_drug_ligands_clean)
-results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
-with open(results_path, 'wb') as f:
-    pickle.dump(results, f)
+genbench3d = GenBench3D(reference_geometry=reference_geometry,
+                        config=config['genbench3d'])
 
 training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 
 training_mols_h = [Chem.AddHs(mol) for mol in training_mols]
 training_cel_h = ConfEnsembleLibrary.from_mol_list(training_mols_h)
-
-# Benchmark CrossDocked test set
-model_name = 'CrossDocked_test'
-test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
-                                config=config['data'],
-                                subset='test')
-test_ligands = test_crossdocked.get_ligands()
-test_mols = preprocess_mols(test_ligands)
-print(model_name, len(test_mols) / len(test_crossdocked.get_split()))
-genbench3D.set_training_cel(training_cel)
-results = genbench3D.get_results_for_mol_list(mols=test_mols)
-results_path = os.path.join(f'{results_dirpath}/results_{model_name}.p')
-with open(results_path, 'wb') as f:
-    pickle.dump(results, f)
     
 with open('test_set/ligand_filenames.txt', 'r') as f:
-    ligand_filenames = f.readlines()
-ligand_filenames = [ligand_filename.strip() for ligand_filename in ligand_filenames]
+    lines = f.readlines()
+all_ligand_filenames = [ligand_filename.strip() for ligand_filename in lines]
+
+with open('test_set/ligand_filenames_subset.txt', 'r') as f:
+    lines = f.readlines()
+ligand_filenames_subset = [ligand_filename.strip() for ligand_filename in lines]
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
 
 models: list[SBModel] = [
                         LiGAN(gen_path=config['models']['ligan_gen_dirpath'],
                               minimized_path=config['data']['minimized_path'],
-                              ligand_filenames=ligand_filenames),
+                              ligand_filenames=all_ligand_filenames),
                         ThreeDSBDD(gen_path=config['models']['threedsbdd_gen_dirpath'],
                                    minimized_path=config['data']['minimized_path']),
                         Pocket2Mol(gen_path=config['models']['pocket2mol_gen_dirpath'],
@@ -126,7 +98,7 @@ for minimize in minimizes:
         # Compile generated molecules for all targets
         all_gen_mols = []
         n_total_mols = 0
-        for ligand_filename in tqdm(ligand_filenames):
+        for ligand_filename in tqdm(ligand_filenames_subset):
             target_dirname, real_ligand_filename = ligand_filename.split('/')
             pdb_filename = f'{real_ligand_filename[:10]}.pdb'
             original_structure_path = os.path.join(config['data']['test_set_path'], 
@@ -164,10 +136,10 @@ for minimize in minimizes:
             
         # Run benchmark
         if minimize:
-            genbench3D.set_training_cel(training_cel_h)
+            genbench3d.set_training_cel(training_cel_h)
         else:
-            genbench3D.set_training_cel(training_cel)
-        results = genbench3D.get_results_for_mol_list(all_gen_mols,
+            genbench3d.set_training_cel(training_cel)
+        results = genbench3d.get_results_for_mol_list(all_gen_mols,
                                                       n_total_mols=n_total_mols)
         
         # Save results

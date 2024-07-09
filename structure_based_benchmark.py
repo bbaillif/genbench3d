@@ -9,24 +9,24 @@ import argparse
 
 from rdkit import Chem
 from tqdm import tqdm
-from genbench3D import SBGenBench3D
-from genbench3D.data import ComplexMinimizer
-from genbench3D.data.structure import (Pocket, 
+from genbench3d import SBGenBench3D
+from genbench3d.data import ComplexMinimizer
+from genbench3d.data.structure import (Pocket, 
                                        VinaProtein, 
                                        GlideProtein)
-from genbench3D.conf_ensemble import ConfEnsembleLibrary
-from genbench3D.sb_model import TargetDiff
-from genbench3D.data.source import CrossDocked
-from genbench3D.sb_model import (SBModel,
+from genbench3d.conf_ensemble import ConfEnsembleLibrary
+from genbench3d.sb_model import TargetDiff
+from genbench3d.data.source import CrossDocked
+from genbench3d.sb_model import (SBModel,
                                  LiGAN,
                                  ThreeDSBDD,
                                  Pocket2Mol,
                                  DiffSBDD,
                                  TargetDiff,
                                  ResGen)
-from genbench3D.utils import preprocess_mols
-from genbench3D.geometry import ReferenceGeometry
-from genbench3D.data.source import CSDDrug
+from genbench3d.utils import preprocess_mols
+from genbench3d.geometry import ReferenceGeometry
+from genbench3d.data.source import CSDDrug
 
 from rdkit import RDLogger 
 RDLogger.DisableLog('rdApp.*')
@@ -45,12 +45,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--config_path", 
                     default='config/default.yaml', 
                     type=str,
-                    help="Path to config file.",
-                    required=False)
+                    help="Path to config file.")
 args = parser.parse_args()
 
 config = yaml.safe_load(open(args.config_path, 'r'))
-overwrite = config['genbench3D']['overwrite_results']
+overwrite = config['genbench3d']['overwrite_results']
 
 results_dirpath = config['results_dir']
 if not os.path.exists(results_dirpath):
@@ -63,7 +62,7 @@ if not os.path.exists(minimized_path):
 source = CSDDrug(subset_path=config['data']['csd_drug_subset_path'])
 reference_geometry = ReferenceGeometry(source=source,
                                        root=config['benchmark_dirpath'],
-                                       minimum_pattern_values=config['genbench3D']['minimum_pattern_values'],)
+                                       minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
 
 train_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
                                 config=config['data'],
@@ -78,12 +77,15 @@ test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
 with open('test_set/ligand_filenames.txt', 'r') as f:
     ligand_filenames = f.readlines()
-ligand_filenames = [ligand_filename.strip() for ligand_filename in ligand_filenames]
+all_ligand_filenames = [ligand_filename.strip() for ligand_filename in ligand_filenames]
+# ligand_filenames_subset = ['PLCD1_RAT_134_756_0/1djy_A_rec_1djz_ip2_lig_tt_min_0.sdf',
+#                            'DPP2_HUMAN_27_492_0/3jyh_A_rec_3n0t_opy_lig_tt_min_0.sdf',
+#                            ]
 
 models: list[SBModel] = [
                         LiGAN(gen_path=config['models']['ligan_gen_dirpath'],
                               minimized_path=config['data']['minimized_path'],
-                              ligand_filenames=ligand_filenames),
+                              ligand_filenames=all_ligand_filenames),
                         ThreeDSBDD(gen_path=config['models']['threedsbdd_gen_dirpath'],
                                    minimized_path=config['data']['minimized_path']),
                         Pocket2Mol(gen_path=config['models']['pocket2mol_gen_dirpath'],
@@ -102,7 +104,7 @@ minimizes = [False, True]
 
 logging.info('Starting benchmark')
 try:
-    for ligand_filename in tqdm(ligand_filenames):
+    for ligand_filename in tqdm(all_ligand_filenames):
         target_dirname, real_ligand_filename = ligand_filename.split('/')
         try:
             logging.info(ligand_filename)
@@ -154,7 +156,7 @@ try:
                     
                     # Minimize native ligand
                     if not os.path.exists(minimized_filepath):
-                        logging.info(f'Minimized native ligand in {minimized_filepath}')
+                        logging.info(f'Saving minimized native ligand in {minimized_filepath}')
                         mini_native_ligand = complex_minimizer.minimize_ligand(native_ligand)
                         with Chem.SDWriter(minimized_filepath) as writer:
                             writer.write(mini_native_ligand)
@@ -166,18 +168,18 @@ try:
                 else:
                     set_name = 'raw'
             
-                sbgenbench3D = SBGenBench3D(reference_geometry=reference_geometry,
-                                            config=config['genbench3D'],
+                sbgenbench3d = SBGenBench3D(reference_geometry=reference_geometry,
+                                            config=config['genbench3d'],
                                             pocket=pocket,
                                             native_ligand=native_ligand)
-                sbgenbench3D.setup_vina(vina_protein,
+                sbgenbench3d.setup_vina(vina_protein,
                                         config['vina'],
                                        add_minimized=True)
-                sbgenbench3D.setup_glide(glide_protein,
+                sbgenbench3d.setup_glide(glide_protein,
                                          glide_path=config['bin']['glide_path'],
                                          add_minimized=True)
-                sbgenbench3D.setup_gold_plp(vina_protein)
-                sbgenbench3D.set_training_cel(training_cel)
+                sbgenbench3d.setup_gold_plp(vina_protein)
+                sbgenbench3d.set_training_cel(training_cel)
             
                 for model in tqdm(models):
                     
@@ -207,7 +209,7 @@ try:
                             d_model = {}
                         
                             logging.info(set_name)
-                            results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
+                            results = sbgenbench3d.get_results_for_mol_list(mols=gen_mols,
                                                                             n_total_mols=n_total_mols,
                                                                             do_conf_analysis=False)
                             
@@ -215,7 +217,7 @@ try:
                             
                             # Valid only results
                             logging.info(f'{set_name}_valid')
-                            results = sbgenbench3D.get_results_for_mol_list(mols=gen_mols,
+                            results = sbgenbench3d.get_results_for_mol_list(mols=gen_mols,
                                                                             n_total_mols=n_total_mols,
                                                                             do_conf_analysis=True,
                                                                             valid_only=True)
@@ -228,7 +230,7 @@ try:
             print(str(e))
             print(type(e))
             logging.warning(f'Something went wrong for ligand {ligand_filename}: {e}')
-            # import pdb;pdb.set_trace()
+            import pdb;pdb.set_trace()
         
 except KeyboardInterrupt:
     import pdb;pdb.set_trace()

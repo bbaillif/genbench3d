@@ -1,14 +1,14 @@
 from setuptools import setup
 
 setup(
-    name='genbench3d',
+    name='genbench3D',
     version='0.1.0',    
     description='Benchmarking 3D molecular generative models',
     url='https://github.com/bbaillif/genbench3d',
     author='Benoit Baillif',
     author_email='bb596@cam.ac.uk',
     license='MIT license',
-    packages=['genbench3d'],
+    packages=['genbench3D'],
 
     classifiers=[
         'Development Status :: 1 - Planning',

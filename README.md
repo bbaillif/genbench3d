@@ -17,8 +17,8 @@ Benchmarking deep learning models generating molecules in 3D
 I might put it on pip/conda if I have time, but for now it is a standalone. 
 Run these commands to download genbench3d, then install in development mode using pip:  
 ```bash
-git clone https://github.com/bbaillif/genbench3D.git
-cd genbench3D
+git clone https://github.com/bbaillif/genbench3d.git
+cd genbench3d
 conda env create -f environment.yml
 conda activate genbench3d
 pip install -e . # install genbench3d in current environment

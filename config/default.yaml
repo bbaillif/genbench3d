@@ -1,6 +1,6 @@
-benchmark_dirpath: /home/bb596/hdd/genbench3D/
-glide_working_dir: /home/bb596/genbench3D/glide_working_dir/
-results_dir: /home/bb596/hdd/genbench3D/results/
+benchmark_dirpath: /home/bb596/hdd/genbench3d/
+glide_working_dir: /home/bb596/genbench3d/glide_working_dir/
+results_dir: /home/bb596/hdd/genbench3d/results/
 
 pocket_distance_from_ligand: 5.0 # Angstrom
 
@@ -11,16 +11,16 @@ bin:
 
 data:
   ligboundconf_path: '/home/bb596/hdd/LigBoundConf/minimized/S2_LigBoundConf_minimized.sdf' # https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip
-  csd_drug_subset_path: '/home/bb596/hdd/genbench3D/CSD_Drug_Subset.gcd' # https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip
+  csd_drug_subset_path: '/home/bb596/hdd/genbench3d/CSD_Drug_Subset.gcd' # https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip
   crossdocked_path: '/home/bb596/hdd/CrossDocked/' # https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM
   crossdocked_full_data_path: '/home/bb596/hdd/crossdocked_v1.1_rmsd1.0/crossdocked_v1.1_rmsd1.0/' # http://bits.csb.pitt.edu/files/crossdock2020/
   crossdocked_pocket10_path: '/home/bb596/hdd/CrossDocked/crossdocked_pocket10/'
   crossdocked_splits_pt_path: '/home/bb596/hdd/CrossDocked/split_by_name.pt'
   crossdocked_splits_p_path: '/home/bb596/hdd/CrossDocked/split_by_name.p'
-  minimized_path: '/home/bb596/hdd/genbench3D/minimized/'
-  test_set_path: '/home/bb596/genbench3D/test_set/'
+  minimized_path: '/home/bb596/hdd/genbench3d/minimized/'
+  test_set_path: '/home/bb596/genbench3d/test_set/'
 
-genbench3D:
+genbench3d:
   minimum_pattern_values: 50
   tfd_threshold: 0.2
   q_value_threshold: 0.001
@@ -32,12 +32,12 @@ genbench3D:
   overwrite_results: True
 
 models:
-  targetdiff_results_filepath: '/home/bb596/hdd/genbench3D/targetdiff/targetdiff_vina_docked.p'
-  threedsbdd_gen_dirpath: '/home/bb596/hdd/genbench3D/AR/test_set/'
-  pocket2mol_gen_dirpath: '/home/bb596/hdd/genbench3D/Pocket2Mol/test_set/'
-  diffsbdd_gen_dirpath:  '/home/bb596/hdd/genbench3D/DiffSBDD/crossdocked_fullatom_joint/'
-  ligan_gen_dirpath: '/home/bb596/hdd/genbench3D/LiGAN/molecules/'
-  resgen_gen_dirpath: /home/bb596/hdd/genbench3D/ResGen/test_set/'
+  targetdiff_results_filepath: '/home/bb596/hdd/genbench3d/targetdiff/targetdiff_vina_docked.p'
+  threedsbdd_gen_dirpath: '/home/bb596/hdd/genbench3d/AR/test_set/'
+  pocket2mol_gen_dirpath: '/home/bb596/hdd/genbench3d/Pocket2Mol/test_set/'
+  diffsbdd_gen_dirpath:  '/home/bb596/hdd/genbench3d/DiffSBDD/crossdocked_fullatom_joint/'
+  ligan_gen_dirpath: '/home/bb596/hdd/genbench3d/LiGAN/molecules/'
+  resgen_gen_dirpath: '/home/bb596/hdd/genbench3d/ResGen/test_set/'
 
 minimization:
   distance_constraint: 1.0 # Angstrom
