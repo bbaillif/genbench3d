@@ -25,15 +25,17 @@ conda activate genbench3d
 pip install -e . # install genbench3d in current environment
 ```
 
-Before using GenBench3D, you must hange the paths of the different data sources and executable in the config/default.yaml (or copy/paste this file and change it accordingly)
+Before using GenBench3D, you must define a source of reference 3D data to be used by the Validity3D metric. The current options are:
+- LigBoundConf PDB subset (minimized version): Publicly available, download [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip). Then, set its path in the data/ligboundconf_path in the config/default.yaml file
+- CSD Drug: Used in our manuscript, requires access to the CSD data and [CSD Python API](https://downloads.ccdc.cam.ac.uk/documentation/API/). You can download the drug subset [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip)
+- MolList: Any RDKit molecule list you want; Just have a name for it ! See the Scripting section.
 
-For the reference data, we used the CSD Drug subset in our work, that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip) along with the CSD Python API to query the September 2023 release of the CSD, but you can use any list of molecules you want. 
-
-If you don't have access to CSD data, we recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
-
+If you plan to compare generated molecules to training molecules for models benchmarked in our work, you need to download CrossDocked: 
 The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). 
 
 You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3d environment.
+
+Finally, change the paths of the different data sources and executable in the config/default.yaml (or copy/paste this file and change it accordingly)
 
 ## Basic Usage
 
@@ -75,14 +77,27 @@ config_path = 'config/default.yaml' # change path accordingly
 config = yaml.safe_load(open(args.config_path, 'r'))
 ```
 
-The second step is to setup a reference geometry from a data source. The CSDDrug source was used in our manuscript, but you can define any reference from a list of molecules. We provide an example for LigBoundConf, a public subset of the PDB with high quality structural data.
+The second step is to setup a reference geometry from a data source. The CSDDrug source was used in our manuscript, but you can define any reference from a list of molecules or sdf file. We provide an example for LigBoundConf, a public subset of the PDB with high quality structural data.
 ```python
-from genbench3d.data.source import LigBoundConf
+from genbench3d.data.source import SDFSource, MolListSource
 from genbench3d.geometry import ReferenceGeometry
 
+# The values and kernel densities used to compute the Validity3D are 
+# saved in files for fast processing, the name allows to retrive them
+ligboundconf_name = 'LigBoundConf'
+
 ligboundconf_path = config['data']['ligboundconf_path'] # Set accordingly
-source = LigBoundConf(ligands_path=ligboundconf_path)
-reference_geometry = ReferenceGeometry(source=source, root=config['benchmark_dirpath'], minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
+source = SDFSource(ligands_path=ligboundconf_path,
+                    name=ligboundconf_name)
+
+# Or using a mol list
+mol_list = Chem.SDMolSupplier(ligboundconf_path, removeHs=False)
+source = MolListSource(ligands_path=ligboundconf_path,
+                        name=ligboundconf_name)
+
+reference_geometry = ReferenceGeometry(source=source, 
+                                        root=config['benchmark_dirpath'], 
+                                        minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
 ```
 The root argument is used to save the values and kernel densities for the extracted reference geometry, and the minimum pattern values is the number of values required for a pattern to have its kernel density computed (if lower than 50, the default behaviour during validity3D evaluation is to simplify the pattern, and if simplified, to consider the geometry as valid in the absence of sufficient data)
 

@@ -2,11 +2,12 @@ import json
 import yaml
 import logging
 import argparse
+import os
 import numpy as np
 
 from rdkit import Chem
 from genbench3d import SBGenBench3D
-from genbench3d.data.source import CSDDrug, CrossDocked, LigBoundConf
+from genbench3d.data.source import CSDDrug, CrossDocked, SDFSource
 from genbench3d.data.structure import VinaProtein, GlideProtein, Pocket
 from genbench3d.data import ComplexMinimizer
 from genbench3d.utils import preprocess_mols
@@ -77,14 +78,19 @@ elif args.source == 'crossdocked':
                          config=config['data'],
                          subset='train')
 elif args.source == 'ligboundconf':
-    source = LigBoundConf(ligands_path=config['data']['ligboundconf_path'])
+    source = SDFSource(ligands_path=config['data']['ligboundconf_path'],
+                       name='LigBoundConf')
     
 reference_geometry = ReferenceGeometry(source=source,
                                        root=config['benchmark_dirpath'],
                                        minimum_pattern_values=config['genbench3d']['minimum_pattern_values'],)
 
-original_structure_path = args.pdb_structure
-native_ligand_path = args.native_ligand_sdf
+assert os.path.exists(args.pdb_structure), "PDB structure path is required"
+assert os.path.exists(args.native_ligand_sdf), "Native ligand path is required"
+# absolute paths are required for Glide and Gold
+original_structure_path = os.path.abspath(args.pdb_structure)
+native_ligand_path = os.path.abspath(args.native_ligand_sdf)
+
 native_ligand = [mol 
                     for mol in Chem.SDMolSupplier(native_ligand_path, 
                                                 removeHs=False)][0]
@@ -142,10 +148,11 @@ for metric_name, values in results.items():
     if isinstance(values, dict): # e.g. Ring proportion
         for key, value in values.items():
             summary[metric_name + str(key)] = value
+            print(f'{metric_name + str(key)}: {np.around(value, 4)}')
     elif isinstance(values, list):
-        summary[metric_name] = np.nanmedian(values) # values can have nan
+        median = np.nanmedian(values)
+        summary[metric_name] = median # values can have nan
+        print(f'Median {metric_name}: {np.around(median, 4)}')
     else: # float or int
         summary[metric_name] = values
-        
-for metric_name, values in summary.items():
-    print(f'{metric_name}: {np.around(values, 4)}')
+        print(f'{metric_name}: {np.around(values, 4)}')
