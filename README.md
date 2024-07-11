@@ -44,11 +44,17 @@ A basic usage is given by the sb_benchmark_mols.py script. We provide an example
 python sb_benchmark_mols.py -c config/default.yaml -i examples/pocket2mol_generated_2z3h.sdf -o results_pocket2mol_generated_2z3h.json -p test_set/BSD_ASPTE_1_130_0/2z3h_A_rec.pdb -n test_set/BSD_ASPTE_1_130_0/2z3h_A_rec_1wn6_bst_lig_tt_docked_3.sdf --do_conf_analysis
 ```
 
+- `-i` is the input sdf filepath containing the molecules to benchmark.
+- `-o` is the output json filepath to store the benchmark results.
+- `-p` is the pdb structure filepath for the protein target of interest that was used for molecule generation
+- `-n` is the native ligand filepath (to locate the pocket)
+- `--do_conf_analysis` to compute all metrics (otherwise, only computes the structure-based metrics)
+
 By default, the `-s` (reference source) argument is set to `ligboundconf`, which is the publicly available. You can set to `csd_drug` if you have CSD access and the CSD Python API.
 
 By default, only Vina is computed. To compute Glide scores, add the `--glide` argument. To compute Gold PLP scores, add the `--gold` argument. 
 
-To compute the structure-based metrics only on 3D-valid molecules, add the `--valid_only` argument.
+To compute the structure-based metrics only on 3D-valid molecules, add the `--valid_only` argument (requires the `--do_conf_analysis` argument).
 
 To perform the analysis on relaxed (local pocket-ligand minimization), add the `-m` argument.
 
