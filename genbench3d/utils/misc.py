@@ -1,8 +1,10 @@
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Mol
-from ccdc.io import Molecule
 from typing import Iterable, Any
+
+class CCDCNotAvailableError(Exception):
+    pass
 
 def get_full_matrix_from_tril(tril_matrix: Iterable[Any], 
                               n: int) -> np.ndarray:
@@ -27,6 +29,13 @@ def get_full_matrix_from_tril(tril_matrix: Iterable[Any],
             j = 0
     return matrix
 
+try:
+    from ccdc.io import Molecule
+    CCDC_IMPORTED = True
+except ImportError:
+    class Molecule: pass
+    CCDC_IMPORTED = False
+    
 def rdkit_conf_to_ccdc_mol(rdkit_mol: Mol, 
                             conf_id: int = -1) -> Molecule:
     """Create a ccdc molecule for a given conformation from a rdkit molecule
@@ -40,6 +49,8 @@ def rdkit_conf_to_ccdc_mol(rdkit_mol: Mol,
     :rtype: Molecule
     
     """
+    if not CCDC_IMPORTED:
+        raise CCDCNotAvailableError("CCDC is not available")
     molblock = Chem.MolToMolBlock(rdkit_mol, 
                                     confId=conf_id)
     molecule: Molecule = Molecule.from_string(molblock)
@@ -53,6 +64,9 @@ def ccdc_mol_to_rdkit_mol(ccdc_mol: Molecule) -> Mol:
     :return: RDKit molecule
     :rtype: Mol
     """
+    
+    if not CCDC_IMPORTED:
+        raise CCDCNotAvailableError("CCDC is not available")
     
     # First line is necessary in case the ccdc mol is a DockedLigand
     # because it contains "fake" atoms with atomic_number lower than 1

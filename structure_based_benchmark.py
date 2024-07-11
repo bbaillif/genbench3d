@@ -75,9 +75,13 @@ test_crossdocked = CrossDocked(root=config['benchmark_dirpath'],
                                 config=config['data'],
                                 subset='test')
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
-with open('test_set/ligand_filenames.txt', 'r') as f:
-    ligand_filenames = f.readlines()
-all_ligand_filenames = [ligand_filename.strip() for ligand_filename in ligand_filenames]
+with open(os.path.join(config['test_set_dir'], 'ligand_filenames.txt'), 'r') as f:
+    lines = f.readlines()
+all_ligand_filenames = [ligand_filename.strip() for ligand_filename in lines]
+
+with open(os.path.join(config['test_set_dir'], 'ligand_filenames_subset.txt'), 'r') as f:
+    lines = f.readlines()
+ligand_filenames_subset = [ligand_filename.strip() for ligand_filename in lines]
 # ligand_filenames_subset = ['PLCD1_RAT_134_756_0/1djy_A_rec_1djz_ip2_lig_tt_min_0.sdf',
 #                            'DPP2_HUMAN_27_492_0/3jyh_A_rec_3n0t_opy_lig_tt_min_0.sdf',
 #                            ]

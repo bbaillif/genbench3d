@@ -14,6 +14,10 @@ class GlideProtein(Protein):
                  glide_output_dirpath: str,
                  glide_path: str,
                  structconvert_path: str) -> None:
+        
+        if not os.path.exists(glide_path):
+            raise FileNotFoundError(f'Cannot find Glide executable at {glide_path}')
+        
         super().__init__(pdb_filepath)
         self.glide_output_dirpath = glide_output_dirpath
         if not os.path.exists(self.glide_output_dirpath):

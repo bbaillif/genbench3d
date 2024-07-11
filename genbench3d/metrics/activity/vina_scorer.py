@@ -26,7 +26,8 @@ class VinaScorer():
         
         self._vina = Vina(sf_name=sf_name,
                           cpu=n_cpus,
-                          seed=seed)
+                          seed=seed,
+                          verbosity=0)
         self._vina.set_receptor(self.vina_protein.pdbqt_filepath) 
         # will automatically perform protein preparation if 
         # the pdbqt file does not exist

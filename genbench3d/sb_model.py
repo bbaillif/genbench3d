@@ -7,7 +7,6 @@ from rdkit import Chem
 from rdkit.Chem import Mol
 from abc import ABC, abstractmethod
 from genbench3d.data import ComplexMinimizer
-from genbench3d.data.source import CrossDocked
 
 class SBModel(ABC):
     
@@ -25,7 +24,8 @@ class SBModel(ABC):
     def get_minimized_molecules(self,
                                  ligand_filename: str,
                                  gen_mols_h: list[Mol], # with hydrogens
-                                 complex_minimizer: ComplexMinimizer):
+                                 complex_minimizer: ComplexMinimizer,
+                                 overwrite: bool = False):
         assert len(gen_mols_h) > 0, 'You must give a non-empty list of molecules with hydrogens'
         target_dirname, real_ligand_filename = ligand_filename.split('/') 
         minimized_target_path = os.path.join(self.minimized_path, target_dirname)
@@ -36,7 +36,7 @@ class SBModel(ABC):
         minimized_filepath = os.path.join(minimized_target_path,
                                         minimized_filename)
         
-        if not os.path.exists(minimized_filepath):
+        if (not os.path.exists(minimized_filepath)) or overwrite:
             logging.info(f'Minimizing molecules for {ligand_filename}')
             mini_gen_mols = []
             for mol_i, mol in enumerate(gen_mols_h):

@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import logging
 
 from typing import Any, Dict, List
@@ -152,6 +153,20 @@ class GenBench3D():
                 
                 geo_mean_q_values = validity3D.get_geo_mean_q_values_for_geometries(combo)
                 self.results[f'Geometric mean {combo_str} q-value ({validity3D.name})'] = geo_mean_q_values
+               
+        # for k, v in self.results.items():
+        #     if type(v) == np.int64:
+        #         self.results[k] = int(v)
+        #     elif type(v) == np.float64:
+        #         self.results[k] = float(v)
+        #     elif type(v) == np.ndarray:
+        #         self.results[k] = v.tolist()
+        #     elif type(v) == list:
+        #         for i, item in enumerate(v):
+        #             if type(item) == np.int64:
+        #                 v[i] = int(item)
+        #             elif type(item) == np.float64:
+        #                 v[i] = float(item)
                
         return self.results
     

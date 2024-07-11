@@ -18,6 +18,10 @@ class GlideScore(Metric):
                  name: str = 'Glide score',
                  mininplace: bool = False,
                  ) -> None:
+        
+        if not os.path.exists(glide_path):
+            raise FileNotFoundError(f'Cannot find Glide executable at {glide_path}')
+        
         super().__init__(name)
         self.glide_path = glide_path
         self.scores = {}

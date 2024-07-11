@@ -4,10 +4,17 @@ import numpy as np
 
 from rdkit import Chem
 from rdkit.Chem import Mol
-from ccdc.docking import Docker
-from ccdc.io import Entry, EntryWriter
 from genbench3d.utils import rdkit_conf_to_ccdc_mol
 from typing import List
+try:
+    from ccdc.docking import Docker
+    from ccdc.io import Entry, EntryWriter
+    CCDC_IMPORTED = True
+except ImportError:
+    class Docker: pass
+    class Entry: pass
+    class EntryWriter: pass
+    CCDC_IMPORTED = False
 
 class GoldScorer():
     
@@ -15,6 +22,10 @@ class GoldScorer():
                  protein_path: str,
                  native_ligand: Mol,
                  ) -> None:
+        
+        if not CCDC_IMPORTED:
+            raise ImportError('CCDC is not available')
+        
         self.docker = Docker()
         settings = self.docker.settings
         self.temp_dir = tempfile.mkdtemp()

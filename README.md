@@ -126,8 +126,8 @@ import pandas as pd
 summary = {}
 for metric_name, values in results.items():
     if isinstance(values, dict): # e.g. Ring proportion
-        for key, value in values:
-            summary[metric_name + key] = value
+        for key, value in values.items():
+            summary[metric_name + str(key)] = value
     elif isinstance(values, list):
         summary[metric_name] = np.nanmedian(values) # values can have nan
     else: # float or int

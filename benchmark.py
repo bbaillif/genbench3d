@@ -64,11 +64,11 @@ training_cel = ConfEnsembleLibrary.from_mol_list(training_mols)
 training_mols_h = [Chem.AddHs(mol) for mol in training_mols]
 training_cel_h = ConfEnsembleLibrary.from_mol_list(training_mols_h)
     
-with open('test_set/ligand_filenames.txt', 'r') as f:
+with open(os.path.join(config['test_set_dir'], 'ligand_filenames.txt'), 'r') as f:
     lines = f.readlines()
 all_ligand_filenames = [ligand_filename.strip() for ligand_filename in lines]
 
-with open('test_set/ligand_filenames_subset.txt', 'r') as f:
+with open(os.path.join(config['test_set_dir'], 'ligand_filenames_subset.txt'), 'r') as f:
     lines = f.readlines()
 ligand_filenames_subset = [ligand_filename.strip() for ligand_filename in lines]
 # ligand_filenames = test_crossdocked.get_ligand_filenames()
@@ -127,7 +127,8 @@ for minimize in minimizes:
                 if minimize:
                     gen_mols = model.get_minimized_molecules(ligand_filename,
                                                             gen_mols_h,
-                                                            complex_minimizer)
+                                                            complex_minimizer,
+                                                            overwrite=True)
                 else:
                     gen_mols = gen_mols_h
                 all_gen_mols.extend(gen_mols)

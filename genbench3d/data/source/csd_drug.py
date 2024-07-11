@@ -2,9 +2,14 @@ import logging
 
 from .data_source import DataSource
 from rdkit import Chem
-from ccdc.io import MoleculeReader
-from genbench3d.utils import ccdc_mol_to_rdkit_mol
 from rdkit.Chem.MolStandardize import rdMolStandardize
+from genbench3d.utils import ccdc_mol_to_rdkit_mol
+try:
+    from ccdc.io import MoleculeReader
+    CCDC_IMPORTED = True
+except ImportError:
+    class MoleculeReader: pass
+    CCDC_IMPORTED = False
 
 class CSDDrug(DataSource):
     
@@ -12,6 +17,10 @@ class CSDDrug(DataSource):
                  subset_path: str,
                  name: str = 'CSDDrug',
                  ) -> None:
+        
+        if not CCDC_IMPORTED:
+            raise ImportError('CCDC is not available')
+        
         super().__init__(name)
         self.subset_path = subset_path
         

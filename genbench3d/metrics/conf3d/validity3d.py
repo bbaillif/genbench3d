@@ -406,7 +406,7 @@ class Validity3D(Metric):
                                                                     aggfunc='count')
                     for geometry in ['bond', 'angle', 'torsion', 'ring']:#
                         if geometry in invalid_numbers_df:
-                            n_inv = invalid_numbers_df[geometry].values[0]
+                            n_inv = int(invalid_numbers_df[geometry].values[0])
                         else:
                             n_inv = 0
                         all_n_invs[geometry].append(n_inv)
@@ -499,10 +499,10 @@ class Validity3D(Metric):
                     except Exception as e:
                         print(e)
                         import pdb;pdb.set_trace()
-                    agg_q_values.extend(q_value_series.values)
+                    agg_q_values.extend(q_value_series.values.tolist())
                 else:
                     # import pdb;pdb.set_trace()
-                    agg_q_values.extend([np.nan] * len(validity_df['conf_id'].unique()))
+                    agg_q_values.extend([float('nan')] * len(validity_df['conf_id'].unique()))
         
         return agg_q_values
         
