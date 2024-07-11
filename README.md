@@ -1,17 +1,18 @@
 # GenBench3D
-Benchmarking deep learning models generating molecules in 3D
+Benchmarking deep learning models generating molecules in 3D. The details of metrics computed, specifically the Validity3D, and results of our benchmark on 6 models are available in our manuscript on [arxiv](https://arxiv.org/abs/2407.04424) and this is the package containing all the code to benchmark your models!
 
-## Requirements
+## Main requirements
+We recommend to install the genbench3d environement, but here is a list of main requirements:
 - Python > 3.9
 - RDKit > 2022.09 (molecule handling + 2022.09 required for rdDetermineBonds)
 - openbabel (for molecule protonation + second bond determination option)
 - [ADFRsuite](https://ccsb.scripps.edu/adfr/downloads/)
 - vina (for Vina docking score)
-- access to Schrodinger Glide CLI (optional)
-- [csd python api](https://downloads.ccdc.cam.ac.uk/documentation/API/installation_notes.html) (for Gold PLP score, optional)
 - meeko (for ligand preparation for Vina)
 - mdanalysis (for protein extraction)
 - PDBFixer (fix the chain identification that is duplicated in CrossDocked files)
+- access to Schrodinger Glide CLI (optional)
+- [csd python api](https://downloads.ccdc.cam.ac.uk/documentation/API/installation_notes.html) (for Gold PLP score, optional)
 
 ## Installation
 I might put it on pip/conda if I have time, but for now it is a standalone. 
@@ -24,13 +25,39 @@ conda activate genbench3d
 pip install -e . # install genbench3d in current environment
 ```
 
-Before using GenBench3D, you must define working relative/absolute paths in the config/default.yaml file.
+Before using GenBench3D, you must hange the paths of the different data sources and executable in the config/default.yaml (or copy/paste this file and change it accordingly)
 
-For the reference data, we used the CSD Drug subset that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip) along with the CSD Python API to query the September 2023 release of the CSD, but you can use any list of molecules you want. We recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
+For the reference data, we used the CSD Drug subset in our work, that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip) along with the CSD Python API to query the September 2023 release of the CSD, but you can use any list of molecules you want. If you don't have access to CSD data, we recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
 
 The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3d environment.
 
-## Usage
+## Basic Usage
+
+A basic usage is given by the sb_benchmark_mols.py script. We provide an example to benchmark all metrics :
+```bash
+python sb_benchmark_mols.py -c config/default.yaml -i examples/pocket2mol_generated_2z3h.sdf -o results_pocket2mol_generated_2z3h.json -p test_set/BSD_ASPTE_1_130_0/2z3h_A_rec.pdb -n test_set/BSD_ASPTE_1_130_0/2z3h_A_rec_1wn6_bst_lig_tt_docked_3.sdf --do_conf_analysis
+```
+
+By default, the `-s` (reference source) argument is set to `ligboundconf`, which is the publicly available. You can set to `csd_drug` if you have CSD access and the CSD Python API.
+By default, only Vina is computed. To compute Glide scores, add the `--glide` argument. To compute Gold PLP scores, add the `--gold` argument. 
+To compute the structure-based metrics only on 3D-valid molecules, add the `--valid_only` argument
+To perform the analysis on relaxed (local pocket-ligand minimization), add the `-m` argument
+
+A simpler version without structure-based metrics is given in benchmark_mols.py script. We provide an example:
+```bash
+python benchmark_mols.py -c config/default.yaml -i examples/pocket2mol_generated_2z3h.sdf -o results_pocket2mol_generated_2z3h.json
+```
+Here again you can use the `-m` argument, but if that's the case don't forget to include the `-p` (pdb_structure) and `-n` (native ligand)
+
+Use the `-h` argument for a recap of all possible arguments. If you have any question or find some bugs, don't hesitate to open a GitHub Issue!
+
+## Reproduce the paper results
+
+You can download the data used in the manuscript on [figshare](https://figshare.com/articles/dataset/Data_for_Benchmarking_structure-based_3D_generative_models_with_GenBench3D/26139496)
+
+I produced the paper results using the benchmark.py and structure_based_benchmark.py scripts. I created classes to handle the retrieval of generated molecules (and minimization) for each model, and benchmarked for each target of the 100 targets in the CrossDocked test set (minus 24 targets for which ResGen generated no molecules). All targets in test_set/ligand_filenames.txt, and the actual subset used for benchmarking in test_set/ligand_filenames_subset.txt, the latter file was generated with `python get_test_subset.py`. Analysis of the results was done with benchmark.ipynb and structure_based_benchmark.ipynb (not the cleanest notebooks, but you should be able to run it with the genbench3d environement).
+
+## Scripting
 
 The first step is to load the configuration file to indicate the working directories and default parameters.
 ```python
@@ -173,10 +200,6 @@ print(summary)
 | Gold PLP score relative to test ligand | Using CSD Python API, CCDC tools required |
 | Absolute Glide score | Requires Schrodinger Glide command line interface |
 | Glide score relative to test ligand | Requires Schrodinger Glide command line interface |
-
-## Set of generated molecules
-
-You can download the data used in the manuscript on [figshare](https://figshare.com/articles/dataset/Data_for_Benchmarking_structure-based_3D_generative_models_with_GenBench3D/26139496)
 
 ## Previous versions details
 

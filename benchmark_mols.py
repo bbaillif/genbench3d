@@ -31,11 +31,11 @@ parser.add_argument("-c", "--config_path",
                     type=str,
                     help="Path to config file.")
 parser.add_argument("-i", "--input_sdf", 
-                    default='examples/pocket2mol_generated_2z3h.sdf', 
+                    # default='examples/pocket2mol_generated_2z3h.sdf', 
                     type=str,
                     help="Path to sdf file containing molecules to benchmark.")
 parser.add_argument("-o", "--output_json", 
-                    default='examples/results_pocket2mol_generated_2z3h.json', 
+                    # default='examples/results_pocket2mol_generated_2z3h.json', 
                     type=str,
                     help="Path to json file to store benchmark results.")
 parser.add_argument("-s", "--source",
@@ -47,11 +47,11 @@ parser.add_argument("-m", "--minimize",
                     action='store_true',
                     help="Whether to minimize the molecules before benchmarking.")
 parser.add_argument("-p", "--pdb_structure",
-                    default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec.pdb',
+                    # default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec.pdb',
                     type=str,
                     help="PDB structure for the pocket used to generate the molecules")
 parser.add_argument("-n", "--native_ligand_sdf",
-                    default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec_1wn6_bst_lig_tt_docked_3.sdf',
+                    # default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec_1wn6_bst_lig_tt_docked_3.sdf',
                     help="Native ligand corresponding to the pocket used to generate the molecules")
 
 args = parser.parse_args()
@@ -75,6 +75,8 @@ benchmark = GenBench3D(reference_geometry=reference_geometry,
                         config=config['genbench3d'])
 
 if args.minimize:
+    assert args.pdb_structure is not None, "PDB structure path is required for minimization."
+    assert args.native_ligand_sdf is not None, "Native ligand path is required for minimization."
     original_structure_path = args.pdb_structure
     native_ligand_path = args.native_ligand_sdf
     native_ligand = [mol 

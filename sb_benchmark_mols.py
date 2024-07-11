@@ -27,23 +27,23 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(funcName)s: %(message)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config_path", 
-                    default='config/default.yaml', 
+                    # default='config/default.yaml', 
                     type=str,
                     help="Path to config file.")
 parser.add_argument("-i", "--input_sdf", 
-                    default='examples/pocket2mol_generated_2z3h.sdf', 
+                    # default='examples/pocket2mol_generated_2z3h.sdf', 
                     type=str,
                     help="Path to sdf file containing molecules to benchmark.")
 parser.add_argument("-o", "--output_json", 
-                    default='examples/results_sb_pocket2mol_generated_2z3h.json', 
+                    # default='examples/results_sb_pocket2mol_generated_2z3h.json', 
                     type=str,
                     help="Path to json file to store benchmark results.")
 parser.add_argument("-p", "--pdb_structure",
-                    default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec.pdb',
+                    # default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec.pdb',
                     type=str,
                     help="PDB structure for the pocket used to generate the molecules")
 parser.add_argument("-n", "--native_ligand_sdf",
-                    default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec_1wn6_bst_lig_tt_docked_3.sdf',
+                    # default='test_set/BSD_ASPTE_1_130_0/2z3h_A_rec_1wn6_bst_lig_tt_docked_3.sdf',
                     help="Native ligand corresponding to the pocket used to generate the molecules")
 parser.add_argument("-s", "--source",
                     default='ligboundconf',
