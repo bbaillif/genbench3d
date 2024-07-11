@@ -6,8 +6,8 @@ We recommend to install the genbench3d environement, but here is a list of main 
 - Python > 3.9
 - RDKit > 2022.09 (molecule handling + 2022.09 required for rdDetermineBonds)
 - openbabel (for molecule protonation + second bond determination option)
-- [ADFRsuite](https://ccsb.scripps.edu/adfr/downloads/)
 - vina (for Vina docking score)
+- [ADFRsuite](https://ccsb.scripps.edu/adfr/downloads/) (for Vina protein preparation)
 - meeko (for ligand preparation for Vina)
 - mdanalysis (for protein extraction)
 - PDBFixer (fix the chain identification that is duplicated in CrossDocked files)
