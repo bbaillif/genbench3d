@@ -27,9 +27,13 @@ pip install -e . # install genbench3d in current environment
 
 Before using GenBench3D, you must hange the paths of the different data sources and executable in the config/default.yaml (or copy/paste this file and change it accordingly)
 
-For the reference data, we used the CSD Drug subset in our work, that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip) along with the CSD Python API to query the September 2023 release of the CSD, but you can use any list of molecules you want. If you don't have access to CSD data, we recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
+For the reference data, we used the CSD Drug subset in our work, that can be found [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip) along with the CSD Python API to query the September 2023 release of the CSD, but you can use any list of molecules you want. 
 
-The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3d environment.
+If you don't have access to CSD data, we recommend using the publicly available LigBoundConf PDB subset (minimized version) that can be downloaded from [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip)
+
+The original CrossDocked v1.1 dataset can be downloaded from [here](http://bits.csb.pitt.edu/files/crossdock2020/) (make sure you have enough space because there are a lot of files), while the processed CrossDocked dataset (extracting pockets and ligands only for RMSD < 1A) used in e.g. Pocket2Mol can be downloaded [here](https://drive.google.com/drive/folders/1CzwxmTpjbrt83z_wBzcQncq84OVDPurM). 
+
+You can run the convert_crossdocked_split.py script with another conda environment you own that has pytorch installed to transform the datasplit (in .pt pickle format containing torch objects) to a .p format without torch object to be run with minimal dependancies with the provided genbench3d environment.
 
 ## Basic Usage
 
@@ -39,9 +43,12 @@ python sb_benchmark_mols.py -c config/default.yaml -i examples/pocket2mol_genera
 ```
 
 By default, the `-s` (reference source) argument is set to `ligboundconf`, which is the publicly available. You can set to `csd_drug` if you have CSD access and the CSD Python API.
+
 By default, only Vina is computed. To compute Glide scores, add the `--glide` argument. To compute Gold PLP scores, add the `--gold` argument. 
-To compute the structure-based metrics only on 3D-valid molecules, add the `--valid_only` argument
-To perform the analysis on relaxed (local pocket-ligand minimization), add the `-m` argument
+
+To compute the structure-based metrics only on 3D-valid molecules, add the `--valid_only` argument.
+
+To perform the analysis on relaxed (local pocket-ligand minimization), add the `-m` argument.
 
 A simpler version without structure-based metrics is given in benchmark_mols.py script. We provide an example:
 ```bash
@@ -55,7 +62,9 @@ Use the `-h` argument for a recap of all possible arguments. If you have any que
 
 You can download the data used in the manuscript on [figshare](https://figshare.com/articles/dataset/Data_for_Benchmarking_structure-based_3D_generative_models_with_GenBench3D/26139496)
 
-I produced the paper results using the benchmark.py and structure_based_benchmark.py scripts. I created classes to handle the retrieval of generated molecules (and minimization) for each model, and benchmarked for each target of the 100 targets in the CrossDocked test set (minus 24 targets for which ResGen generated no molecules). All targets in test_set/ligand_filenames.txt, and the actual subset used for benchmarking in test_set/ligand_filenames_subset.txt, the latter file was generated with `python get_test_subset.py`. Analysis of the results was done with benchmark.ipynb and structure_based_benchmark.ipynb (not the cleanest notebooks, but you should be able to run it with the genbench3d environement).
+I produced the paper results using the benchmark.py and structure_based_benchmark.py scripts. I created classes to handle the retrieval of generated molecules (and minimization) for each model, and benchmarked for each target of the 100 targets in the CrossDocked test set (minus 24 targets for which ResGen generated no molecules). All targets in test_set/ligand_filenames.txt, and the actual subset used for benchmarking in test_set/ligand_filenames_subset.txt, the latter file was generated with `python get_test_subset.py`. 
+
+Analysis of the results was done with benchmark.ipynb and structure_based_benchmark.ipynb (not the cleanest notebooks, but you should be able to run it with the genbench3d environement).
 
 ## Scripting
 
@@ -162,6 +171,22 @@ for metric_name, values in results.items():
 print(summary)
 ```
 
+## GenBench3D parameters
+
+Can be found in the config/default.yaml file:
+
+| Parameter | Definition |
+| --- | --- |
+| minimum_pattern_values | Minimum number of values for a geometric pattern to define a Kernel Density for the q-value (i.e. normalized likelihood) computation |
+| tfd_threshold | Minimum value for Torsion Fingerprint Deviation between 2 conformers to consider them different (for Uniqueness3D and Novelty3D definitions) |
+| q_value_threshold | Minimum q-value for a value for a geometric pattern to be considered as valid |
+| steric_clash_safety_ratio | The minimal distance between two atoms (as computed using vdW radii) is multiplied by this safety ratio before clash detection (clash = distance < minimum) |
+| maximum_ring_plane_distance | Minimum perpendicular distance for an aromatic ring atom to the plane (computed with SVG) |
+| consider_hydrogens | Consider hydrogens in the geometric patterns. Default to False, as most methods don't generate hydrogen atom positions, and these can be easily predicted with RDKit for instance |
+| include_torsions_in_validity3D | Whether to include torsions in the validity3D (q-value aggregation). Default to False, as the profile of torsions between the reference and generated molecules (adapted to a given target) is different |
+| add_minimized_docking_scores | Whether to include molecule adjustement for docking score (Vina and Glide) computation |
+| overwrite_results | Whether to overwrite the results (for the benchmark.py and structure_based_benchmark.py to reproduce paper results)
+
 ## Implemented metrics
 
 ### Based on topological graph (traditionally used to evaluate SMILES or molecular graph generators)
@@ -183,7 +208,7 @@ print(summary)
 | Metric | Definition |
 | --- | --- |
 | Validity3D | Fraction of molecular conformations with valid bond lengths and valence angles, based on kernel density estimations from values observed in the CSD Drug Subset, see `Validity3D` class for details, flat aromatic rings and no intramolecular steric clash |
-| Uniqueness3D | Fraction of (3D-valid by default) unique conformations based on Torsion Fingerprint Deviation (TFD) with a default threshold of 0.2. Threshold can be input in `GenBench3D` with the `tfd_threshold` argument |
+| Uniqueness3D | Fraction of (3D-valid by default) unique conformations based on Torsion Fingerprint Deviation (TFD) with a default threshold of 0.2. |
 | Novelty3D | Fraction of (3D-valid by default) conformations different from those observed in the training set (only on the set of common molecules between training and generated)  |
 | Diversity3D | Average interconformation deviation computed using the TFD (on 3D-valid by default)|
 | MMFF94s strain energy | Using up to 1000 minimization step, computed using the MMFF94s RDKit implementation |
