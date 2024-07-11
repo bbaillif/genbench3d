@@ -25,7 +25,7 @@ conda activate genbench3d
 pip install -e . # install genbench3d in current environment
 ```
 
-Before using GenBench3D, you must define a source of reference 3D data to be used by the Validity3D metric. The current options are:
+Before using GenBench3D, you must choose a source of reference 3D data to be used by the Validity3D metric. The current options are:
 - LigBoundConf PDB subset (minimized version): Publicly available, download [here](https://pubs.acs.org/doi/suppl/10.1021/acs.jcim.0c01197/suppl_file/ci0c01197_si_002.zip). Then, set its path in the data/ligboundconf_path in the config/default.yaml file
 - CSD Drug: Used in our manuscript, requires access to the CSD data and [CSD Python API](https://downloads.ccdc.cam.ac.uk/documentation/API/). You can download the drug subset [here](https://ars.els-cdn.com/content/image/1-s2.0-S0022354918308104-mmc2.zip)
 - MolList: Any RDKit molecule list you want; Just have a name for it ! See the Scripting section.
@@ -64,9 +64,9 @@ Use the `-h` argument for a recap of all possible arguments. If you have any que
 
 You can download the data used in the manuscript on [figshare](https://figshare.com/articles/dataset/Data_for_Benchmarking_structure-based_3D_generative_models_with_GenBench3D/26139496)
 
-I produced the paper results using the benchmark.py and structure_based_benchmark.py scripts. I created classes to handle the retrieval of generated molecules (and minimization) for each model, and benchmarked for each target of the 100 targets in the CrossDocked test set (minus 24 targets for which ResGen generated no molecules). All targets in test_set/ligand_filenames.txt, and the actual subset used for benchmarking in test_set/ligand_filenames_subset.txt, the latter file was generated with `python get_test_subset.py`. 
+I produced the paper results using the benchmark.py, benchmark_baselines.py and structure_based_benchmark.py scripts. I created classes to handle the retrieval of generated molecules (and minimization) for each model, and benchmarked for each target of the 100 targets in the CrossDocked test set (minus 24 targets for which ResGen generated no molecules). All targets in test_set/ligand_filenames.txt, and the actual subset used for benchmarking in test_set/ligand_filenames_subset.txt, the latter file was generated with `python get_test_subset.py`. 
 
-Analysis of the results was done with benchmark.ipynb and structure_based_benchmark.ipynb (not the cleanest notebooks, but you should be able to run it with the genbench3d environement).
+Analysis of the results was done with benchmark.ipynb, structure_based_benchmark.ipynb and pattern_distributions.ipynb (not the cleanest notebooks, but you should be able to run it with the genbench3d environement).
 
 ## Scripting
 
@@ -91,8 +91,8 @@ source = SDFSource(ligands_path=ligboundconf_path,
                     name=ligboundconf_name)
 
 # Or using a mol list
-mol_list = Chem.SDMolSupplier(ligboundconf_path, removeHs=False)
-source = MolListSource(ligands_path=ligboundconf_path,
+source_mol_list = Chem.SDMolSupplier(ligboundconf_path, removeHs=False)
+source = MolListSource(mol_list=source_mol_list,
                         name=ligboundconf_name)
 
 reference_geometry = ReferenceGeometry(source=source, 
