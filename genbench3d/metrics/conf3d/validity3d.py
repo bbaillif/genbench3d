@@ -403,10 +403,15 @@ class Validity3D(Metric):
                     invalid_numbers_df = invalidity_df.pivot_table(values='value', 
                                                                     index=['name', 'conf_id'],
                                                                     columns=['geometry_type'],
-                                                                    aggfunc='count')
+                                                                    aggfunc='count',
+                                                                    fill_value=0)
                     for geometry in ['bond', 'angle', 'torsion', 'ring']:#
                         if geometry in invalid_numbers_df:
-                            n_inv = int(invalid_numbers_df[geometry].values[0])
+                            if np.isnan(invalid_numbers_df[geometry].values[0]):
+                                n_inv = 0
+                                # import pdb;pdb.set_trace()
+                            else:
+                                n_inv = int(invalid_numbers_df[geometry].values[0])
                         else:
                             n_inv = 0
                         all_n_invs[geometry].append(n_inv)
