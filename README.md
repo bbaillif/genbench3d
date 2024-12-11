@@ -16,12 +16,13 @@ We recommend to install the genbench3d environement, but here is a list of main 
 
 ## Installation
 I might put it on pip/conda if I have time, but for now it is a standalone. 
+For installation, we recommend using mamba instead of conda that does the same job but much faster!
 Run these commands to download genbench3d, then install in development mode using pip:  
 ```bash
 git clone https://github.com/bbaillif/genbench3d.git
 cd genbench3d
-conda env create -f environment.yml
-conda activate genbench3d
+mamba env create -f environment.yml
+mamba activate genbench3d
 pip install -e . # install genbench3d in current environment
 ```
 
