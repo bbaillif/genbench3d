@@ -325,4 +325,3 @@ dependencies:
       - meeko==0.5.0
       - molvs==0.1.1
       - vina==1.2.4
-prefix: /home/bb596/ssd/miniforge3/envs/csd
