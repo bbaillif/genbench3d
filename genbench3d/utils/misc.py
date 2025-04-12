@@ -1,6 +1,8 @@
 import numpy as np
+import multiprocessing
 from rdkit import Chem
 from rdkit.Chem import Mol
+from rdkit.Chem import AllChem
 from typing import Iterable, Any
 
 class CCDCNotAvailableError(Exception):
@@ -130,3 +132,24 @@ def preprocess_mols(mol_list):
             except Exception as e:
                 pass
     return new_mol_list
+
+
+def add_hs_to_mols(mol_list,
+                   n_threads=12):
+    mol_list = [Chem.AddHs(mol, addCoords=True) for mol in mol_list]
+    
+    # See https://github.com/rdkit/rdkit/discussions/4528
+    def minimize_thread(mol):
+        mp = AllChem.MMFFGetMoleculeProperties(mol, mmffVariant='MMFF94s')
+        ff = AllChem.MMFFGetMoleculeForceField(mol, mp)
+        for a in mol.GetAtoms():
+            if (a.GetAtomicNum() > 1):
+                ff.MMFFAddPositionConstraint(a.GetIdx(), 0.0, 1.e4)
+        ff.Minimize(maxIts=10000)
+        return mol
+
+    pool = multiprocessing.Pool(n_threads)
+
+    min_mols = pool.map(minimize_thread, mol_list)
+
+    return min_mols

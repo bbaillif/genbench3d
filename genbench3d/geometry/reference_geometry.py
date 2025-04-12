@@ -29,11 +29,13 @@ class ReferenceGeometry():
                  source: DataSource,
                  root: str,
                  minimum_pattern_values: int,
+                 use_generalized_patterns: bool = False,
                  ) -> None:
             
         self.source = source
         self.root = root
         self.minimum_pattern_values = minimum_pattern_values
+        self.use_generalized_patterns = use_generalized_patterns
         
         self.geometry_extractor = GeometryExtractor()
         
@@ -152,6 +154,8 @@ class ReferenceGeometry():
         logging.info(f'Computing angle kernel densities for {self.source.name}')
         angle_kernel_densities: dict[AnglePattern, GeometryKernelDensity] = {}
         for pattern, pattern_values in tqdm(angle_values.items()):
+            # if pattern.to_string() == 'O()=P(-O,-C)-O()':
+            #     import pdb;pdb.set_trace()
             if len(pattern_values) > self.minimum_pattern_values:
                 # bandwidth = self.silverman_scott_bandwidth_estimation(pattern_values)
                 # bandwidth = bandwidth * 5
@@ -406,29 +410,32 @@ class ReferenceGeometry():
             q_value = likelihood.item() / kd.max_likelihood
             
         else:
-            generalized_pattern = geometry_pattern.generalize() 
-            logging.debug(f'Trying to generalize pattern (outer) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
-            if generalized_pattern in kds:
-                kd = kds[generalized_pattern]
-                kernel_density = kd.kernel_density
-                log_likelihood = kernel_density.score_samples(np.array(value).reshape(-1, 1))
-                likelihood = np.exp(log_likelihood)
-                q_value = likelihood.item() / kd.max_likelihood
-            else:
-                if geometry == 'bond':
-                    if new_pattern_is_valid:
-                        new_pattern = True
+            if self.use_generalized_patterns:
+                generalized_pattern = geometry_pattern.generalize() 
+                logging.debug(f'Trying to generalize pattern (outer) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
+                if generalized_pattern in kds:
+                    kd = kds[generalized_pattern]
+                    kernel_density = kd.kernel_density
+                    log_likelihood = kernel_density.score_samples(np.array(value).reshape(-1, 1))
+                    likelihood = np.exp(log_likelihood)
+                    q_value = likelihood.item() / kd.max_likelihood
                 else:
-                    generalized_pattern = geometry_pattern.generalize(inner_neighbors=True)
-                    logging.debug(f'Trying to generalize pattern (outer + inner) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
-                    if generalized_pattern in kds:
-                        kd = kds[generalized_pattern]
-                        kernel_density = kd.kernel_density
-                        log_likelihood = kernel_density.score_samples(np.array(value).reshape(-1, 1))
-                        likelihood = np.exp(log_likelihood)
-                        q_value = likelihood.item() / kd.max_likelihood
-                    else:
+                    if geometry == 'bond':
                         if new_pattern_is_valid:
                             new_pattern = True
+                    else:
+                        generalized_pattern = geometry_pattern.generalize(inner_neighbors=True)
+                        logging.debug(f'Trying to generalize pattern (outer + inner) : {geometry_pattern.to_string()} to {generalized_pattern.to_string()}')
+                        if generalized_pattern in kds:
+                            kd = kds[generalized_pattern]
+                            kernel_density = kd.kernel_density
+                            log_likelihood = kernel_density.score_samples(np.array(value).reshape(-1, 1))
+                            likelihood = np.exp(log_likelihood)
+                            q_value = likelihood.item() / kd.max_likelihood
+                        else:
+                            if new_pattern_is_valid:
+                                new_pattern = True
+            else:
+                new_pattern = True
                 
         return q_value, new_pattern
