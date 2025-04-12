@@ -1,6 +1,12 @@
 # GenBench3D
 Benchmarking deep learning models generating molecules in 3D. The details of metrics computed, specifically the Validity3D, and results of our benchmark on 6 models are available in our manuscript on [arxiv](https://arxiv.org/abs/2407.04424) and this is the package containing all the code to benchmark your models!
 
+## Changelog
+12-04-2025: I noticed some inconsistencies with the generalized patterns that lead to underestimation of the Validity3D. I decided to add a `use_generalized_pattern argument` in the `ReferenceGeometry`, setting the default to `False`.  
+This leads to more "new patterns" that are considered 3D-valid by default, but this reduces the risk to underestimate the Validity3D.  
+The initial reason behind generalization was to consider invalid bonds or angles from patterns that are new (or without enough data) but with abherent bond length or valence angles (i.e. a C-C bond of 1.0 Angstrom would be considered valid if the neighborhood around these are novel). But in the case of ring systems, or aromaticity/resonance, generalizing might lead to unexpected scenarios.  
+Examples: A bond between two carbons that are part of the same 5-membered rings will have the same generalized pattern as a bond between two carbons that each belong to a different 5-membered ring.
+
 ## Main requirements
 We recommend to install the genbench3d environement, but here is a list of main requirements:
 - Python > 3.9
