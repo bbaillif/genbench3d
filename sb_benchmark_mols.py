@@ -128,6 +128,7 @@ if args.minimize:
                                             config=config['minimization'])
     
 gen_mols = Chem.SDMolSupplier(args.input_sdf, removeHs=False)
+n_total_mols = len(gen_mols) # Used to compute the molecular graph Validity metric
 gen_mols = preprocess_mols(gen_mols) # Remove empty, None and fragmented RDKit molecules 
 gen_mols_h = [Chem.AddHs(mol, addCoords=True) for mol in gen_mols]
 if args.minimize:
@@ -137,6 +138,7 @@ else:
     gen_mols = gen_mols_h
     
 results = sb_benchmark.get_results_for_mol_list(gen_mols,
+                                                n_total_mols=n_total_mols,
                                                 do_conf_analysis=args.do_conf_analysis,
                                                 valid_only=args.valid_only)
     
